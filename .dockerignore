@@ -1,0 +1,11 @@
+node_modules
+dist
+data
+.env
+*.log
+server.log
+server-err.log
+.git
+.gitignore
+preview.html
+*.md

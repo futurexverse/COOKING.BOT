@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oracle Engine - Live Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #e5e5e5;
+        }
+        .font-manrope { font-family: 'Manrope', sans-serif; }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .signal-win { color: #10b981; }
+        .signal-loss { color: #ef4444; }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-8">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-manrope font-extrabold tracking-tighter text-white flex items-center gap-2">
+                    ORACLE ENGINE <span class="text-xs font-normal bg-red-500/10 text-red-500 px-2 py-1 rounded border border-red-500/20 active-mode">LIVE</span>
+                </h1>
+                <p class="text-neutral-500 text-sm mt-1">Solana Memecoin Signal Intelligence & AI Persona Generation</p>
+            </div>
+            <div class="flex gap-3">
+                <div class="glass px-4 py-2 rounded-lg flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-green-500 pulse"></div>
+                    <span class="text-xs font-medium">Node Active</span>
+                </div>
+                <div class="glass px-4 py-2 rounded-lg flex items-center gap-2">
+                    <i data-lucide="twitter" class="w-4 h-4 text-sky-400"></i>
+                    <span class="text-xs font-medium">@OracleBot</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass p-6 rounded-2xl">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-neutral-500 text-sm font-medium">Total Signals</span>
+                    <i data-lucide="activity" class="w-5 h-5 text-neutral-400"></i>
+                </div>
+                <div class="text-3xl font-bold text-white">1,284</div>
+                <div class="text-xs text-green-500 mt-2 flex items-center gap-1">
+                    <i data-lucide="trending-up" class="w-3 h-3"></i> +12% from yesterday
+                </div>
+            </div>
+            <div class="glass p-6 rounded-2xl">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-neutral-500 text-sm font-medium">Avg Signal Score</span>
+                    <i data-lucide="target" class="w-5 h-5 text-neutral-400"></i>
+                </div>
+                <div class="text-3xl font-bold text-white">0.68</div>
+                <div class="text-xs text-neutral-500 mt-2 italic">Baseline: 0.62</div>
+            </div>
+            <div class="glass p-6 rounded-2xl">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-neutral-500 text-sm font-medium">Success Rate</span>
+                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-neutral-400"></i>
+                </div>
+                <div class="text-3xl font-bold text-white">64.2%</div>
+                <div class="text-xs text-green-500 mt-2 flex items-center gap-1">
+                    <i data-lucide="arrow-up-right" class="w-3 h-3"></i> Top performer: $MINTED
+                </div>
+            </div>
+            <div class="glass p-6 rounded-2xl border-blue-500/20">
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-neutral-500 text-sm font-medium">Latest Thought</span>
+                    <i data-lucide="brain-circuit" class="w-5 h-5 text-blue-400"></i>
+                </div>
+                <div class="text-sm font-medium text-blue-200 line-clamp-2">"Market heat is rising. Symbols showing divergence on $SOL..."</div>
+                <div class="text-[10px] text-neutral-500 mt-2 uppercase tracking-widest">3 seconds ago</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Recent Decisions -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="flex justify-between items-center px-2">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="list" class="w-5 h-5 text-neutral-400"></i> Recent Decisions
+                    </h2>
+                    <span class="text-xs text-neutral-500">Live Feed</span>
+                </div>
+                <div class="space-y-3" id="decision-list">
+                    <!-- Decisions will be injected here -->
+                </div>
+            </div>
+
+            <!-- Model Context & Settings -->
+            <div class="space-y-6">
+                <div class="glass p-6 rounded-2xl space-y-6">
+                    <h2 class="text-sm font-bold text-neutral-400 uppercase tracking-widest">Engine Configuration</h2>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-neutral-500">Threshold (Call)</span>
+                            <span class="text-white font-mono">0.70</span>
+                        </div>
+                        <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                            <div class="bg-blue-500 h-full" style="width: 70%"></div>
+                        </div>
+
+                        <div class="flex justify-between text-sm">
+                            <span class="text-neutral-500">Threshold (Watch)</span>
+                            <span class="text-white font-mono">0.45</span>
+                        </div>
+                        <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                            <div class="bg-yellow-500 h-full" style="width: 45%"></div>
+                        </div>
+
+                        <div class="pt-4 border-t border-white/5 space-y-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span class="text-sm text-neutral-300">Strategy: <span class="text-white">baseline_v1</span></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span class="text-sm text-neutral-300">Model: <span class="text-white">GPT-4o</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-2xl bg-sky-500/5">
+                    <h2 class="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-4">AI Persona State</h2>
+                    <div class="text-xs text-neutral-400 leading-relaxed italic">
+                        "Oracle is currently posturing as a neutral market researcher. Avoiding hype cycles, focusing on liquidity metrics and volume spikes."
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data based on the project state
+        const decisions = [
+            { id: "d9ae0690", time: "10 mins ago", type: "actionable", anchor: "MINTED", score: 0.668, status: "live_call", pnl: "+14.2%" },
+            { id: "e8bf0890", time: "1 hour ago", type: "actionable", anchor: "hourly_top5", score: 0.652, status: "stand_by", pnl: "n/a" },
+            { id: "4d450b8d", time: "3 hours ago", type: "actionable", anchor: "MINTED", score: 0.668, status: "live_call", pnl: "-2.1%" },
+            { id: "bc5aa9b2", time: "5 hours ago", type: "fallback", anchor: "market_pulse", score: null, status: "quiet", pnl: "n/a" }
+        ];
+
+        const container = document.getElementById('decision-list');
+        decisions.forEach(d => {
+            const div = document.createElement('div');
+            div.className = 'glass p-4 rounded-xl flex items-center justify-between group hover:border-white/10 transition-colors';
+            div.innerHTML = `
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-neutral-400">
+                        <i data-lucide="${d.type === 'actionable' ? 'trending-up' : 'rss'}" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-white uppercase tracking-tight">${d.anchor}</span>
+                            <span class="text-[10px] bg-white/5 text-neutral-500 px-1.5 py-0.5 rounded">${d.id}</span>
+                        </div>
+                        <div class="text-xs text-neutral-500">${d.time} • Strategy: baseline_v1</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-8 text-right">
+                    ${d.score ? `
+                        <div>
+                            <div class="text-xs text-neutral-500 font-medium uppercase">Score</div>
+                            <div class="text-sm font-bold text-white">${d.score.toFixed(3)}</div>
+                        </div>
+                    ` : ''}
+                    <div>
+                        <div class="text-xs text-neutral-500 font-medium uppercase">Status</div>
+                        <div class="text-sm font-bold ${d.status === 'live_call' ? 'text-green-500' : 'text-neutral-400'}">${d.status.replace('_', ' ')}</div>
+                    </div>
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-neutral-600"></i>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>

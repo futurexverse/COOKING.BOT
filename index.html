@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COOKING | Autonomous Token Launch Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #F59E0B; --accent-glow: rgba(245,158,11,0.5); --bg-blur: 20px; }
+        body { font-family: 'Outfit', sans-serif; background-color: #050505; color: #fafafa; overflow-x: hidden; background-image: url('/assets/cooking-bg.png'); background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh; }
+        .bg-overlay { position: fixed; inset: 0; background: linear-gradient(to bottom, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.95) 100%); z-index: -1; }
+        .glass { background: rgba(15,15,15,0.6); backdrop-filter: blur(var(--bg-blur)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.8); }
+        .glass-hover:hover { border-color: rgba(59,130,246,0.3); background: rgba(20,20,20,0.7); transform: translateY(-2px); }
+        .glow-text { text-shadow: 0 0 20px var(--accent-glow); }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .node-active-dot { box-shadow: 0 0 10px #10b981; }
+        .expandable { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; opacity: 0; }
+        .expandable.open { max-height: 2000px; opacity: 1; }
+        .stat-card { cursor: pointer; transition: all 0.3s ease; }
+        .stat-card:active { transform: scale(0.98); }
+        .breakdown-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; }
+        .breakdown-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+        .safety-ok { color: #10b981; }
+        .safety-warn { color: #f59e0b; }
+        .safety-bad { color: #ef4444; }
+        .proposal-card { border-left: 3px solid; }
+        .proposal-pending { border-color: #f59e0b; }
+        .proposal-approved { border-color: #10b981; }
+        .proposal-rejected { border-color: #ef4444; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="bg-overlay"></div>
+
+    <div class="max-w-[1400px] mx-auto p-4 md:p-10 space-y-10 relative z-10">
+
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div class="space-y-1">
+                <div class="flex items-center gap-3">
+                    <img src="/assets/cooking-logo.png" alt="COOKING" class="w-20 h-20 rounded-2xl object-cover shadow-lg shadow-amber-500/20">
+                    <h1 class="text-6xl font-extrabold tracking-tight glow-text leading-none uppercase">
+                        COOKING
+                    </h1>
+                </div>
+                <p class="text-neutral-400 text-sm font-medium tracking-wide uppercase px-1 opacity-70">Autonomous Solana Token Launch Agent</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="scanNow()" id="btn-scan" class="glass px-5 py-2.5 rounded-2xl flex items-center gap-2 border-amber-500/20 hover:border-amber-500/40 transition-colors text-amber-400 hover:text-amber-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+                    <span class="text-xs font-bold tracking-widest uppercase">Scan Now</span>
+                </button>
+                <div class="glass px-5 py-2.5 rounded-2xl flex items-center gap-3 border-green-500/20">
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-500 node-active-dot animate-pulse"></div>
+                    <span class="text-xs font-bold tracking-widest uppercase">Node: Active</span>
+                </div>
+                <div class="glass px-5 py-2.5 rounded-2xl flex items-center gap-3">
+                    <svg class="text-neutral-400 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6a9 9 0 0 0-9 9V3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></svg>
+                    <span class="text-xs font-bold tracking-widest uppercase">v1.0.0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- HOW IT WORKS -->
+        <section class="space-y-4">
+            <h2 class="text-lg font-bold tracking-tight flex items-center gap-3 px-2">
+                <span class="w-2 h-6 bg-amber-600 rounded-full"></span>
+                How It Works
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="glass p-6 rounded-2xl border-amber-500/20 relative group glass-hover">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+                        </div>
+                        <span class="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Step 1</span>
+                    </div>
+                    <h3 class="text-base font-bold mb-1">Scan</h3>
+                    <p class="text-xs text-neutral-400 leading-relaxed">Fetches trending Solana tokens from Jupiter, Dexscreener, or Pump.fun every few minutes</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border-purple-500/20 relative group glass-hover">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        </div>
+                        <span class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Step 2</span>
+                    </div>
+                    <h3 class="text-base font-bold mb-1">Score</h3>
+                    <p class="text-xs text-neutral-400 leading-relaxed">6-factor weighted algorithm rates volume, liquidity, momentum, holders, and safety. Only 70%+ scores pass</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border-green-500/20 relative group glass-hover">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>
+                        </div>
+                        <span class="text-[10px] font-bold text-green-400 uppercase tracking-widest">Step 3</span>
+                    </div>
+                    <h3 class="text-base font-bold mb-1">Launch</h3>
+                    <p class="text-xs text-neutral-400 leading-relaxed">AI evaluates market conditions and proposes a launch. You approve, then it deploys via Pump.fun or Raydium</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border-red-500/20 relative group glass-hover">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                        </div>
+                        <span class="text-[10px] font-bold text-red-400 uppercase tracking-widest">Step 4</span>
+                    </div>
+                    <h3 class="text-base font-bold mb-1">Guard</h3>
+                    <p class="text-xs text-neutral-400 leading-relaxed">Post-launch monitoring: rug detection, price alerts, stop-loss/take-profit, holder tracking, Telegram alerts</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVE STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="stat-card glass p-7 rounded-[2rem] relative overflow-hidden group glass-hover" onclick="toggleStatDetail('detail-scan')">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-colors"></div>
+                <div class="flex justify-between items-center mb-4">
+                    <div class="p-3 bg-white/5 rounded-2xl text-neutral-400 group-hover:text-amber-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+                    </div>
+                    <span class="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">Intelligence</span>
+                </div>
+                <h3 id="stat-total" class="text-3xl font-bold tracking-tight">0</h3>
+                <p class="text-neutral-500 text-xs font-semibold uppercase tracking-widest mt-1">Signals Scanned</p>
+                <p class="text-[10px] text-neutral-600 mt-2">Click to view all scored tokens</p>
+                <svg class="w-4 h-4 text-neutral-600 mt-2 transition-transform" id="icon-detail-scan" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+
+            <div class="stat-card glass p-7 rounded-[2rem] relative overflow-hidden group glass-hover" onclick="toggleStatDetail('detail-actionable')">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors"></div>
+                <div class="flex justify-between items-center mb-4">
+                    <div class="p-3 bg-white/5 rounded-2xl text-neutral-400 group-hover:text-purple-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/></svg>
+                    </div>
+                    <span class="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">Actionable</span>
+                </div>
+                <h3 id="stat-actionable" class="text-3xl font-bold tracking-tight text-purple-400">0</h3>
+                <p class="text-neutral-500 text-xs font-semibold uppercase tracking-widest mt-1">Actionable Found</p>
+                <p class="text-[10px] text-neutral-600 mt-2">Click to view actionable tokens</p>
+                <svg class="w-4 h-4 text-neutral-600 mt-2 transition-transform" id="icon-detail-actionable" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+
+            <div class="stat-card glass p-7 rounded-[2rem] relative overflow-hidden group glass-hover" onclick="toggleStatDetail('detail-launches')">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-colors"></div>
+                <div class="flex justify-between items-center mb-4">
+                    <div class="p-3 bg-white/5 rounded-2xl text-neutral-400 group-hover:text-green-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>
+                    </div>
+                    <span class="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">Deployed</span>
+                </div>
+                <h3 id="stat-launches" class="text-3xl font-bold tracking-tight text-green-400">0</h3>
+                <p class="text-neutral-500 text-xs font-semibold uppercase tracking-widest mt-1">Launches</p>
+                <p class="text-[10px] text-neutral-600 mt-2">Click to view launch details</p>
+                <svg class="w-4 h-4 text-neutral-600 mt-2 transition-transform" id="icon-detail-launches" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+
+            <div class="glass p-7 rounded-[2rem] bg-amber-600/5 border-amber-500/30 relative overflow-hidden group">
+                <div class="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl opacity-50"></div>
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] font-bold text-amber-400 uppercase tracking-[0.2em]">System Status</span>
+                    <div class="flex gap-1">
+                        <div class="w-1 h-1 bg-amber-500/50 rounded-full animate-bounce"></div>
+                        <div class="w-1 h-1 bg-amber-500/50 rounded-full animate-bounce [animation-delay:-0.2s]"></div>
+                        <div class="w-1 h-1 bg-amber-500/50 rounded-full animate-bounce [animation-delay:-0.4s]"></div>
+                    </div>
+                </div>
+                <div id="stat-thought" class="text-sm font-medium text-amber-100/80 italic line-clamp-3 leading-relaxed">
+                    "Engine initializing... connecting to Solana RPC."
+                </div>
+            </div>
+        </div>
+
+        <!-- STAT DETAIL PANELS -->
+        <div id="detail-scan" class="expandable">
+            <div class="glass p-6 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg>
+                        All Scored Tokens
+                    </h3>
+                    <span id="scan-count" class="text-[10px] font-bold text-neutral-500"></span>
+                </div>
+                <div id="scan-tokens-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-2"></div>
+            </div>
+        </div>
+
+        <div id="detail-actionable" class="expandable">
+            <div class="glass p-6 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/></svg>
+                        Actionable Tokens (70%+)
+                    </h3>
+                    <span id="actionable-count" class="text-[10px] font-bold text-neutral-500"></span>
+                </div>
+                <div id="actionable-tokens-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-2"></div>
+            </div>
+        </div>
+
+        <div id="detail-launches" class="expandable">
+            <div class="glass p-6 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>
+                        Launch Details
+                    </h3>
+                    <span id="launches-detail-count" class="text-[10px] font-bold text-neutral-500"></span>
+                </div>
+                <div id="launches-detail-list" class="space-y-3 max-h-[600px] overflow-y-auto pr-2"></div>
+            </div>
+        </div>
+
+        <!-- CAPABILITIES -->
+        <section class="space-y-4">
+            <h2 class="text-lg font-bold tracking-tight flex items-center gap-3 px-2">
+                <span class="w-2 h-6 bg-purple-600 rounded-full"></span>
+                Capabilities
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Signal Detection</h3>
+                            <p class="text-xs text-neutral-400 mt-0.5">Multi-source Solana token scanning</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-neutral-300 space-y-2.5 pl-16">
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Jupiter API</strong> — Solana DEX aggregator trending tokens with volume, price change, and pool data</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Dexscreener</strong> — Multi-chain DEX analytics filtered for Solana pairs</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Pump.fun</strong> — New memecoin launches on the Pump.fun launchpad</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Helius DAS</strong> — On-chain safety checks (mint authority, freeze authority, honeypot detection)</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span>Runs every 5 minutes (configurable), processes 50+ tokens per cycle</span></div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Smart Scoring</h3>
+                            <p class="text-xs text-neutral-400 mt-0.5">6-factor weighted algorithm</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-neutral-300 space-y-2.5 pl-16">
+                        <div class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Volume Spike (25%)</strong> — Volume-to-liquidity ratio indicates trading interest</span></div>
+                        <div class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Liquidity Depth (20%)</strong> — Minimum $10K liquidity required, deeper is better</span></div>
+                        <div class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">&#9679;</span><span><strong>24h Momentum (20%)</strong> — Price change over 24 hours indicates trend direction</span></div>
+                        <div class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">&#9679;</span><span><strong>1h Momentum (15%)</strong> — Short-term price action for early detection</span></div>
+                        <div class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Holder Growth (10%)</strong> — Number of unique token holders</span></div>
+                        <div class="flex items-start gap-2"><span class="text-purple-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Safety Score (10%)</strong> — Liquidity health and on-chain risk factors</span></div>
+                        <div class="mt-3 p-3 bg-white/5 rounded-xl">
+                            <span class="text-[10px] font-bold text-neutral-500 uppercase">Gates:</span>
+                            <span class="ml-2 text-xs"><span class="text-amber-400 font-bold">70%+</span> = Actionable</span>
+                            <span class="ml-3 text-xs"><span class="text-yellow-400 font-bold">45%+</span> = Watchlist</span>
+                            <span class="ml-3 text-xs"><span class="text-neutral-500 font-bold">&lt;45%</span> = Noise</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Auto Launch</h3>
+                            <p class="text-xs text-neutral-400 mt-0.5">AI-driven token deployment with human approval</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-neutral-300 space-y-2.5 pl-16">
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Condition Evaluation</strong> — Rule-based scoring analyzes signal strength, market heat, recent launches</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Confidence Score</strong> — Produces 0-100% confidence. Must hit 75%+ to propose a launch</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Approval Gate</strong> — You approve via API or Telegram before any token is deployed</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Pump.fun</strong> — Fast deployment, no LP setup needed, lowest cost (~0.01 SOL)</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Raydium</strong> — Custom SPL token + liquidity pool, more control (~5 SOL)</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Dedicated Wallet</strong> — Hot wallet funded by you, AI signs transactions</span></div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold">Guardian</h3>
+                            <p class="text-xs text-neutral-400 mt-0.5">Post-launch monitoring and protection</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-neutral-300 space-y-2.5 pl-16">
+                        <div class="flex items-start gap-2"><span class="text-red-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Rug Detection</strong> — Monitors for liquidity pulls, freeze authority, mint authority, honeypot behavior</span></div>
+                        <div class="flex items-start gap-2"><span class="text-red-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Performance Tracking</strong> — Real-time price, volume, holder count, PnL from launch price</span></div>
+                        <div class="flex items-start gap-2"><span class="text-red-400 mt-0.5 shrink-0">&#9679;</span><span><strong>LP Management</strong> — Configurable stop-loss (-30%), take-profit (+100%), trailing stop</span></div>
+                        <div class="flex items-start gap-2"><span class="text-red-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Holder Alerts</strong> — Milestone notifications at 100, 500, 1K, 5K, 10K holders</span></div>
+                        <div class="flex items-start gap-2"><span class="text-red-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Telegram Alerts</strong> — Critical/warning/info alerts pushed to your Telegram in real-time</span></div>
+                        <div class="flex items-start gap-2"><span class="text-red-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Auto-Sell</strong> — Executes sell when stop-loss or take-profit triggers</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MAIN GRID -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left: Neural Feed + Proposals -->
+            <div class="lg:col-span-8 space-y-6">
+                <div class="flex justify-between items-center px-4">
+                    <h2 class="text-xl font-bold tracking-tight flex items-center gap-3">
+                        <span class="w-2 h-8 bg-amber-600 rounded-full"></span>
+                        Neural Feed
+                    </h2>
+                </div>
+                <div id="decision-list" class="space-y-4">
+                    <div class="glass p-10 rounded-[2.5rem] flex flex-col items-center justify-center space-y-4 opacity-50">
+                        <div class="w-12 h-12 border-2 border-white/10 border-t-amber-500 rounded-full animate-spin"></div>
+                        <p class="text-xs font-bold uppercase tracking-widest text-neutral-500">Retrieving intelligence...</p>
+                    </div>
+                </div>
+
+                <!-- Launch Proposals -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center px-4">
+                        <h2 class="text-xl font-bold tracking-tight flex items-center gap-3">
+                            <span class="w-2 h-8 bg-green-600 rounded-full"></span>
+                            Launch Proposals
+                        </h2>
+                    </div>
+                    <div id="proposals-list" class="space-y-3">
+                        <div class="glass p-8 rounded-2xl text-center opacity-50">
+                            <p class="text-xs font-bold uppercase tracking-widest text-neutral-500">No pending proposals</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Sidebar -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Market Heat -->
+                <div class="glass p-6 rounded-2xl space-y-4 border-amber-500/20">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"/></svg>
+                        <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400">Market Heat</h3>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="relative w-20 h-20">
+                            <svg class="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
+                                <path class="text-white/5" stroke="currentColor" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                                <path id="heat-arc" class="text-orange-400" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span id="heat-value" class="text-lg font-bold mono text-orange-400">0%</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 space-y-1">
+                            <p id="heat-label" class="text-xs font-bold text-neutral-400">Cold</p>
+                            <p class="text-[10px] text-neutral-600">Market activity level based on candidate count and top scores</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Config -->
+                <div class="glass p-6 rounded-2xl space-y-5">
+                    <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400 pb-2 border-b border-white/5">System Config</h3>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-end">
+                                <span class="text-xs font-bold uppercase tracking-widest text-neutral-400">Execution Gate</span>
+                                <span id="cfg-gate" class="text-lg font-bold mono text-amber-400">0.70</span>
+                            </div>
+                            <div class="w-full bg-white/5 rounded-full h-2 p-0.5 border border-white/10">
+                                <div id="cfg-gate-bar" class="bg-gradient-to-r from-amber-600 to-amber-400 h-full rounded-full" style="width:70%"></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-end">
+                                <span class="text-xs font-bold uppercase tracking-widest text-neutral-400">Watchlist Gate</span>
+                                <span id="cfg-watchlist" class="text-lg font-bold mono text-yellow-500">0.45</span>
+                            </div>
+                            <div class="w-full bg-white/5 rounded-full h-2 p-0.5 border border-white/10">
+                                <div id="cfg-watchlist-bar" class="bg-gradient-to-r from-yellow-600 to-yellow-400 h-full rounded-full" style="width:45%"></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-end">
+                                <span class="text-xs font-bold uppercase tracking-widest text-neutral-400">Launch Confidence</span>
+                                <span id="cfg-confidence" class="text-lg font-bold mono text-green-400">0.75</span>
+                            </div>
+                            <div class="w-full bg-white/5 rounded-full h-2 p-0.5 border border-white/10">
+                                <div id="cfg-confidence-bar" class="bg-gradient-to-r from-green-600 to-green-400 h-full rounded-full" style="width:75%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 pt-2">
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                            <span class="text-[10px] font-bold uppercase text-neutral-400">Strategy</span>
+                            <span id="cfg-strategy" class="text-[11px] font-bold mono text-white">cooking_v1</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                            <span class="text-[10px] font-bold uppercase text-neutral-400">Scan Interval</span>
+                            <span id="cfg-interval" class="text-[11px] font-bold mono text-white">5 min</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                            <span class="text-[10px] font-bold uppercase text-neutral-400">Guardian</span>
+                            <span class="text-[11px] font-bold mono text-green-400">Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Launches -->
+                <div class="glass p-6 rounded-2xl space-y-4 border-green-500/20">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/></svg>
+                        <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400">Active Launches</h3>
+                    </div>
+                    <div id="launch-list" class="space-y-3">
+                        <div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No active launches yet. Click "Propose Launch" on an actionable token.</div>
+                    </div>
+                </div>
+
+                <!-- Guardian Alerts -->
+                <div class="glass p-6 rounded-2xl space-y-4 border-red-500/20">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                        <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400">Guardian Alerts</h3>
+                    </div>
+                    <div id="guardian-alerts" class="space-y-3 max-h-80 overflow-y-auto">
+                        <div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No alerts. Alerts appear when a launched token is monitored.</div>
+                    </div>
+                </div>
+
+                <!-- Guardian Performance -->
+                <div class="glass p-6 rounded-2xl space-y-4 border-yellow-500/20">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+                        <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-neutral-400">Guardian Performance</h3>
+                    </div>
+                    <div id="guardian-performance" class="space-y-3">
+                        <div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No guarded tokens with performance data yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ICONS = {
+            'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+            'radar': '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
+            'git-branch': '<path d="M15 6a9 9 0 0 0-9 9V3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>',
+            'target': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+            'rocket': '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/>',
+            'shield': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+            'zap': '<path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z"/>',
+            'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+            'list': '<path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/>',
+            'flame': '<path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"/>',
+            'activity': '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+            'database-zap': '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 15 21.84"/><path d="M21 5V8"/><path d="M21 12L18 17H22L19 22"/><path d="M3 12A9 3 0 0 0 14.59 14.87"/>',
+            'eye': '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+            'minus': '<path d="M5 12h14"/>',
+            'check': '<path d="M20 6 9 17l-5-5"/>',
+            'alert-triangle': '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+            'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+            'info': '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
+        };
+
+        function icon(name, cls) {
+            const paths = ICONS[name];
+            if (!paths) return '';
+            const classes = cls || '';
+            return `<svg class="${classes}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+        }
+
+        function toggleStatDetail(id) {
+            const el = document.getElementById(id);
+            const iconEl = document.getElementById('icon-' + id);
+            el.classList.toggle('open');
+            if (iconEl) iconEl.style.transform = el.classList.contains('open') ? 'rotate(180deg)' : '';
+        }
+
+        function timeAgo(ts) {
+            if (!ts) return "Unknown";
+            const seconds = Math.floor((Date.now() - ts) / 1000);
+            if (seconds < 60) return `${seconds}s ago`;
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+
+        function formatUsd(n) {
+            if (n == null) return '—';
+            if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+            return '$' + n.toFixed(2);
+        }
+
+        function formatNum(n) {
+            if (n == null) return '—';
+            return n.toLocaleString();
+        }
+
+        function scoreColor(score) {
+            if (score >= 0.7) return 'text-green-400';
+            if (score >= 0.45) return 'text-yellow-400';
+            return 'text-neutral-500';
+        }
+
+        function breakdownBar(key, value, weight) {
+            const labels = {
+                volume_spike: 'Volume Spike',
+                liquidity_depth: 'Liquidity',
+                price_momentum_24h: '24h Momentum',
+                price_momentum_1h: '1h Momentum',
+                holder_growth: 'Holders',
+                safety_score: 'Safety'
+            };
+            const colors = {
+                volume_spike: 'from-amber-600 to-amber-400',
+                liquidity_depth: 'from-purple-600 to-purple-400',
+                price_momentum_24h: 'from-green-600 to-green-400',
+                price_momentum_1h: 'from-yellow-600 to-yellow-400',
+                holder_growth: 'from-cyan-600 to-cyan-400',
+                safety_score: 'from-red-600 to-red-400'
+            };
+            const pct = (value * 100).toFixed(0);
+            return `
+                <div class="flex items-center gap-3">
+                    <span class="text-[10px] font-bold text-neutral-400 w-24 shrink-0">${labels[key] || key}</span>
+                    <div class="flex-1 breakdown-bar">
+                        <div class="breakdown-fill bg-gradient-to-r ${colors[key] || 'from-neutral-600 to-neutral-400'}" style="width:${pct}%"></div>
+                    </div>
+                    <span class="text-[10px] font-bold mono text-neutral-300 w-16 text-right">${pct}%</span>
+                    <span class="text-[9px] font-bold text-neutral-600 w-12 text-right">&times;${(weight * 100).toFixed(0)}%</span>
+                </div>
+            `;
+        }
+
+        function safetyBadge(label, value) {
+            if (value == null) return '';
+            const cls = value ? 'safety-bad' : 'safety-ok';
+            const sym = value ? '&#10005;' : '&#10003;';
+            return `<span class="text-[10px] font-bold ${cls}">${sym} ${label}</span>`;
+        }
+
+        function renderTokenCard(token, weights) {
+            const bd = token.breakdown || {};
+            const weightMap = weights || {
+                volume_spike: 0.25, liquidity_depth: 0.20,
+                price_momentum_24h: 0.20, price_momentum_1h: 0.15,
+                holder_growth: 0.10, safety_score: 0.10
+            };
+            return `
+                <div class="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-amber-500/20 transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-extrabold text-white uppercase">$${token.symbol || '?'}</span>
+                            ${token.name ? `<span class="text-[10px] text-neutral-500">${token.name}</span>` : ''}
+                            ${token.source ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-white/5 text-neutral-400 uppercase">${token.source}</span>` : ''}
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-bold mono ${scoreColor(token.score)}">${(token.score * 100).toFixed(1)}%</span>
+                            <span class="block text-[9px] font-bold uppercase ${token.signal_type === 'actionable' ? 'text-amber-400' : token.signal_type === 'watchlist' ? 'text-yellow-400' : 'text-neutral-500'}">${token.signal_type || 'noise'}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5 mb-3">
+                        ${Object.entries(bd).map(([k, v]) => breakdownBar(k, v, weightMap[k] || 0.1)).join('')}
+                    </div>
+                    <div class="flex flex-wrap gap-3 text-[10px] text-neutral-400 border-t border-white/5 pt-2">
+                        <span>Vol: <strong class="text-neutral-200">${formatUsd(token.volume_24h)}</strong></span>
+                        <span>Liq: <strong class="text-neutral-200">${formatUsd(token.liquidity)}</strong></span>
+                        <span>Holders: <strong class="text-neutral-200">${formatNum(token.holders)}</strong></span>
+                        <span>24h: <strong class="${(token.change_24h || 0) >= 0 ? 'text-green-400' : 'text-red-400'}">${(token.change_24h || 0) >= 0 ? '+' : ''}${(token.change_24h || 0).toFixed(1)}%</strong></span>
+                        ${token.change_1h != null ? `<span>1h: <strong class="${token.change_1h >= 0 ? 'text-green-400' : 'text-red-400'}">${token.change_1h >= 0 ? '+' : ''}${token.change_1h.toFixed(1)}%</strong></span>` : ''}
+                        ${token.market_cap ? `<span>MCap: <strong class="text-neutral-200">${formatUsd(token.market_cap)}</strong></span>` : ''}
+                        ${token.price ? `<span>Price: <strong class="text-neutral-200">${token.price < 0.01 ? token.price.toExponential(2) : '$' + token.price.toFixed(6)}</strong></span>` : ''}
+                    </div>
+                    ${token.safety ? `
+                    <div class="flex gap-4 mt-2 pt-2 border-t border-white/5">
+                        ${safetyBadge('Freeze Auth', token.safety.has_freeze_authority)}
+                        ${safetyBadge('Mint Auth', token.safety.has_mint_authority)}
+                        ${token.safety.is_honeypot != null ? safetyBadge('Honeypot', token.safety.is_honeypot) : ''}
+                    </div>` : ''}
+                    ${token.signal_type === 'actionable' ? `
+                    <div class="mt-3 pt-2 border-t border-white/5">
+                        <button onclick="proposeLaunch(${JSON.stringify(token).replace(/"/g, '&quot;')}, event)" class="w-full py-2 bg-green-500/10 text-green-400 text-[11px] font-bold uppercase rounded-lg hover:bg-green-500/20 border border-green-500/20 transition-colors flex items-center justify-center gap-2">
+                            ${icon('rocket', 'w-3.5 h-3.5')}
+                            Propose Launch
+                        </button>
+                    </div>` : ''}
+                </div>
+            `;
+        }
+
+        function renderProposalCard(p) {
+            const statusCls = p.status === 'pending' ? 'proposal-pending' : p.status === 'approved' ? 'proposal-approved' : 'proposal-rejected';
+            const statusColor = p.status === 'pending' ? 'text-yellow-400' : p.status === 'approved' ? 'text-green-400' : 'text-red-400';
+            const proposal = p.proposal || {};
+            const signal = proposal.signal || {};
+            const confPct = ((proposal.confidence || 0) * 100).toFixed(0);
+            return `
+                <div class="glass p-5 rounded-xl proposal-card ${statusCls}">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-extrabold text-white uppercase">$${proposal.symbol || signal.symbol || '?'}</span>
+                            <span class="text-[10px] font-bold ${statusColor} uppercase">${p.status}</span>
+                        </div>
+                        <span class="text-[10px] text-neutral-500">${timeAgo(p.created_at)}</span>
+                    </div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="flex-1 bg-white/5 rounded-full h-2 p-0.5">
+                            <div class="bg-gradient-to-r from-green-600 to-green-400 h-full rounded-full" style="width:${confPct}%"></div>
+                        </div>
+                        <span class="text-sm font-bold mono text-green-400">${confPct}%</span>
+                        <span class="text-[9px] font-bold text-neutral-500 uppercase">Confidence</span>
+                    </div>
+                    <p class="text-[11px] text-neutral-300 mb-2 italic">${proposal.reasoning || 'No reasoning provided'}</p>
+                    <div class="flex items-center gap-4 text-[10px] text-neutral-400">
+                        <span>Platform: <strong class="text-neutral-200">${proposal.platform || 'pumpfun'}</strong></span>
+                        <span>Cost: <strong class="text-neutral-200">${proposal.estimated_cost_sol || 0.01} SOL</strong></span>
+                    </div>
+                    ${p.status === 'pending' ? `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="approveProposal('${p.decision_id}', true, event)" class="px-3 py-1.5 bg-green-500/20 text-green-400 text-[10px] font-bold uppercase rounded-lg hover:bg-green-500/30 transition-colors">Approve</button>
+                        <button onclick="approveProposal('${p.decision_id}', false, event)" class="px-3 py-1.5 bg-red-500/20 text-red-400 text-[10px] font-bold uppercase rounded-lg hover:bg-red-500/30 transition-colors">Reject</button>
+                    </div>` : ''}
+                </div>
+            `;
+        }
+
+        async function proposeLaunch(token, event) {
+            const btn = event ? event.target.closest('button') : document.querySelector(`[data-propose="${token.symbol}"]`);
+            if (!btn || btn.disabled) return;
+            const origHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="animate-pulse">Evaluating...</span>';
+            btn.disabled = true;
+            try {
+                const resp = await fetch('/api/launch/propose', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        signal: {
+                            symbol: token.symbol,
+                            name: token.name || token.symbol,
+                            score: token.score,
+                            signal_type: token.signal_type,
+                            breakdown: token.breakdown || {},
+                            change_24h: token.change_24h || 0,
+                            change_1h: token.change_1h || 0,
+                            volume_24h: token.volume_24h || 0,
+                            liquidity: token.liquidity || 0,
+                            holders: token.holders || 0,
+                            market_cap: token.market_cap,
+                            price: token.price,
+                            source: token.source
+                        },
+                        market_heat: window._lastMarketHeat || 0.5,
+                        recent_launches: 0
+                    })
+                });
+                const proposal = await resp.json();
+                const pct = ((proposal.confidence || 0) * 100).toFixed(0);
+                const statusColor = proposal.status === 'pending' ? 'text-yellow-400' : proposal.status === 'rejected' ? 'text-red-400' : 'text-green-400';
+                btn.innerHTML = `<span class="${statusColor}">${proposal.status === 'pending' ? 'Proposal Created — ' + pct + '% confidence' : proposal.status === 'rejected' ? 'Rejected (' + pct + '%)' : 'Approved'}</span>`;
+                btn.className = 'w-full py-2 bg-white/5 text-neutral-400 text-[11px] font-bold uppercase rounded-lg border border-white/10 cursor-default';
+                fetchDashboard();
+            } catch (err) {
+                btn.innerHTML = '<span class="text-red-400">Error — try again</span>';
+                setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; btn.className = 'w-full py-2 bg-green-500/10 text-green-400 text-[11px] font-bold uppercase rounded-lg hover:bg-green-500/20 border border-green-500/20 transition-colors flex items-center justify-center gap-2'; }, 2000);
+            }
+        }
+
+        async function approveProposal(decisionId, approved, event) {
+            const btn = event ? event.target.closest('button') : null;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="animate-pulse">' + (approved ? 'Approving...' : 'Rejecting...') + '</span>';
+            }
+            try {
+                const resp = await fetch(`/api/approve/${decisionId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ approved })
+                });
+                const result = await resp.json();
+                if (btn) {
+                    btn.innerHTML = approved ? '<span class="text-green-400">Approved</span>' : '<span class="text-red-400">Rejected</span>';
+                    btn.className = btn.className.replace('hover:bg-green-500/30', '').replace('hover:bg-red-500/30', '');
+                }
+                fetchDashboard();
+            } catch (err) {
+                console.error('Approval error:', err);
+                if (btn) {
+                    btn.innerHTML = '<span class="text-red-400">Error</span>';
+                    setTimeout(() => fetchDashboard(), 1500);
+                }
+            }
+        }
+
+        async function scanNow() {
+            const btn = document.getElementById('btn-scan');
+            if (btn.disabled) return;
+            const origHTML = btn.innerHTML;
+            btn.innerHTML = '<div class="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin"></div><span class="text-xs font-bold tracking-widest uppercase">Scanning...</span>';
+            btn.disabled = true;
+            try {
+                const resp = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ solana_trending: [] })
+                });
+                const result = await resp.json();
+                btn.innerHTML = `${icon('check', 'w-4 h-4 text-green-400')}<span class="text-xs font-bold tracking-widest uppercase text-green-400">${result.candidates_scored} scored</span>`;
+                fetchDashboard();
+                setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 3000);
+            } catch (err) {
+                btn.innerHTML = `${icon('alert-circle', 'w-4 h-4 text-red-400')}<span class="text-xs font-bold tracking-widest uppercase text-red-400">Error</span>`;
+                setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 2000);
+            }
+        }
+
+        let cachedWeights = null;
+
+        async function fetchDashboard() {
+            try {
+                const response = await fetch('/api/dashboard');
+                const data = await response.json();
+
+                const decisions = data.decisions || [];
+                const launches = data.launches || [];
+                const guardians = data.guardians || [];
+                const scoredTokens = data.scored_tokens || [];
+                const pendingProposals = data.pending_proposals || [];
+                const marketHeat = data.market_heat || 0;
+                window._lastMarketHeat = marketHeat;
+                const config = data.config || {};
+
+                if (!cachedWeights) {
+                    try {
+                        const cfgResp = await fetch('/api/config');
+                        const cfgData = await cfgResp.json();
+                        cachedWeights = cfgData.scoring?.weights || null;
+                    } catch {}
+                }
+
+                // Stats
+                document.getElementById('stat-total').innerText = decisions.length.toLocaleString();
+                const actionable = decisions.filter(d => d.type === 'actionable').length;
+                document.getElementById('stat-actionable').innerText = actionable;
+                document.getElementById('stat-launches').innerText = launches.length;
+
+                if (data.mind_snapshot) {
+                    const text = data.mind_snapshot.content || "Scanning...";
+                    document.getElementById('stat-thought').innerText = `"${text}"`;
+                }
+
+                // Market Heat
+                const heatPct = (marketHeat * 100).toFixed(0);
+                document.getElementById('heat-value').textContent = heatPct + '%';
+                document.getElementById('heat-arc').setAttribute('stroke-dasharray', `${heatPct}, 100`);
+                const heatLabel = marketHeat >= 0.7 ? 'Hot' : marketHeat >= 0.4 ? 'Warm' : marketHeat >= 0.2 ? 'Cool' : 'Cold';
+                document.getElementById('heat-label').textContent = heatLabel;
+
+                // Config
+                if (config.actionable_gate != null) {
+                    document.getElementById('cfg-gate').textContent = config.actionable_gate.toFixed(2);
+                    document.getElementById('cfg-gate-bar').style.width = (config.actionable_gate * 100) + '%';
+                }
+                if (config.watchlist_gate != null) {
+                    document.getElementById('cfg-watchlist').textContent = config.watchlist_gate.toFixed(2);
+                    document.getElementById('cfg-watchlist-bar').style.width = (config.watchlist_gate * 100) + '%';
+                }
+                if (config.launch_confidence != null) {
+                    document.getElementById('cfg-confidence').textContent = config.launch_confidence.toFixed(2);
+                    document.getElementById('cfg-confidence-bar').style.width = (config.launch_confidence * 100) + '%';
+                }
+                if (config.strategy) document.getElementById('cfg-strategy').textContent = config.strategy;
+                if (config.scan_interval) document.getElementById('cfg-interval').textContent = config.scan_interval;
+
+                // Scan Tokens Detail
+                const scanList = document.getElementById('scan-tokens-list');
+                document.getElementById('scan-count').textContent = `${scoredTokens.length} tokens scored`;
+                if (scoredTokens.length === 0) {
+                    scanList.innerHTML = '<div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No tokens scored yet. Click "Scan Now" to analyze tokens.</div>';
+                } else {
+                    scanList.innerHTML = scoredTokens.map(t => renderTokenCard(t, cachedWeights)).join('');
+                }
+
+                // Actionable Tokens Detail
+                const actionableList = document.getElementById('actionable-tokens-list');
+                const actionableTokens = scoredTokens.filter(t => t.signal_type === 'actionable');
+                document.getElementById('actionable-count').textContent = `${actionableTokens.length} actionable`;
+                if (actionableTokens.length === 0) {
+                    actionableList.innerHTML = '<div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No actionable tokens. Tokens need 70%+ score.</div>';
+                } else {
+                    actionableList.innerHTML = actionableTokens.map(t => renderTokenCard(t, cachedWeights)).join('');
+                }
+
+                // Launches Detail
+                const launchesList = document.getElementById('launches-detail-list');
+                document.getElementById('launches-detail-count').textContent = `${launches.length} launches`;
+                if (launches.length === 0) {
+                    launchesList.innerHTML = '<div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No launches yet.</div>';
+                } else {
+                    launchesList.innerHTML = launches.slice().reverse().map(l => `
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-bold text-white">$${l.symbol}</span>
+                                <span class="text-[10px] font-bold text-green-400 mono">${timeAgo(l.launched_at)}</span>
+                            </div>
+                            <div class="text-[10px] text-neutral-400 space-y-1">
+                                <div>Name: <strong class="text-neutral-200">${l.name || l.symbol}</strong></div>
+                                <div>Platform: <strong class="text-neutral-200">${l.platform}</strong></div>
+                                <div>Mint: <strong class="text-neutral-200 mono">${l.mint}</strong></div>
+                                <div>TX: <strong class="text-neutral-200 mono">${l.tx_signature ? l.tx_signature.substring(0, 20) + '...' : '—'}</strong></div>
+                                <div>Cost: <strong class="text-neutral-200">${l.cost_sol ? l.cost_sol.toFixed(4) + ' SOL' : '—'}</strong></div>
+                                <div>Guardian: <strong class="${l.guardian_active ? 'text-green-400' : 'text-neutral-500'}">${l.guardian_active ? 'Active' : 'Inactive'}</strong></div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Proposals
+                const proposalsList = document.getElementById('proposals-list');
+                if (pendingProposals.length === 0) {
+                    proposalsList.innerHTML = '<div class="glass p-8 rounded-2xl text-center opacity-50"><p class="text-xs font-bold uppercase tracking-widest text-neutral-500">No pending proposals</p></div>';
+                } else {
+                    proposalsList.innerHTML = pendingProposals.slice().reverse().map(renderProposalCard).join('');
+                }
+
+                // Neural Feed
+                const container = document.getElementById('decision-list');
+                container.innerHTML = '';
+                const recent = decisions.slice(-15).reverse();
+
+                if (recent.length === 0) {
+                    container.innerHTML = `
+                        <div class="glass p-16 rounded-[3rem] flex flex-col items-center gap-6 text-neutral-600 opacity-40">
+                            ${icon('database-zap', 'w-16 h-16')}
+                            <div class="text-center space-y-2">
+                                <p class="text-sm font-bold uppercase tracking-[0.2em]">No Signals Yet</p>
+                                <p class="text-xs text-neutral-500 max-w-xs">Scanned tokens will appear here with scores, signal types, and actionable insights. Click "Scan Now" to start.</p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                recent.forEach(d => {
+                    const typeColor = d.type === 'actionable' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : d.type === 'watchlist' ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' : 'text-neutral-400 bg-white/5 border-white/10';
+                    const sd = d.signal_data || {};
+                    const bd = sd.breakdown || {};
+                    const iconName = d.type === 'actionable' ? 'zap' : d.type === 'watchlist' ? 'eye' : 'minus';
+                    const div = document.createElement('div');
+                    div.className = 'glass rounded-2xl overflow-hidden group transition-all duration-500 glass-hover';
+                    div.innerHTML = `
+                        <div class="p-6 md:p-7 flex flex-col md:flex-row items-center justify-between cursor-pointer" onclick="this.parentElement.querySelector('.expandable').classList.toggle('open')">
+                            <div class="flex items-center gap-5 w-full md:w-auto">
+                                <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-neutral-400 group-hover:scale-110 transition-transform duration-500">
+                                    ${icon(iconName, 'w-6 h-6')}
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-lg font-extrabold tracking-tight text-white uppercase">${d.anchor || 'SCANNING'}</span>
+                                        <span class="px-2 py-0.5 rounded-lg border text-[9px] font-bold ${typeColor}">${(d.type || 'unknown').toUpperCase()}</span>
+                                        ${d.candidates_scored ? `<span class="text-[9px] font-bold text-neutral-600">${d.candidates_scored} scored</span>` : ''}
+                                    </div>
+                                    <div class="text-[10px] font-bold uppercase text-neutral-500 tracking-wider flex items-center gap-2">
+                                        <span>${timeAgo(d.created_at)}</span>
+                                        <span class="w-1 h-1 bg-neutral-700 rounded-full"></span>
+                                        <span class="text-neutral-400">${d.strategy_id || ''}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-5 mt-5 md:mt-0 w-full md:w-auto justify-end">
+                                ${d.score ? `<div class="text-right px-3"><div class="text-[9px] font-extrabold text-neutral-500 uppercase tracking-widest mb-1 opacity-50">Score</div><div class="text-xl font-bold mono glow-text ${scoreColor(d.score)}">${d.score.toFixed(3)}</div></div>` : ''}
+                                <div class="text-right px-3 min-w-[90px]">
+                                    <div class="text-[9px] font-extrabold text-neutral-500 uppercase tracking-widest mb-1 opacity-50">Signal</div>
+                                    <div class="text-xs font-black uppercase tracking-tight ${d.call_type === 'live_call' ? 'text-amber-400 animate-pulse' : 'text-neutral-400'}">${(d.call_type || d.type || 'pending').replace('_', ' ')}</div>
+                                </div>
+                                ${icon('chevron-down', 'w-4 h-4 text-neutral-600 transition-transform')}
+                            </div>
+                        </div>
+                        <div class="expandable px-6 pb-6">
+                            ${Object.keys(bd).length > 0 ? `
+                            <div class="space-y-1.5 mb-3 p-4 bg-black/30 rounded-xl">
+                                <div class="text-[9px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Score Breakdown</div>
+                                ${Object.entries(bd).map(([k, v]) => breakdownBar(k, v, cachedWeights?.[k] || 0.1)).join('')}
+                            </div>` : ''}
+                            <div class="flex flex-wrap gap-4 text-[10px] text-neutral-400 p-4 bg-black/30 rounded-xl">
+                                ${sd.volume_24h != null ? `<span>Volume: <strong class="text-neutral-200">${formatUsd(sd.volume_24h)}</strong></span>` : ''}
+                                ${sd.liquidity != null ? `<span>Liquidity: <strong class="text-neutral-200">${formatUsd(sd.liquidity)}</strong></span>` : ''}
+                                ${sd.holders != null ? `<span>Holders: <strong class="text-neutral-200">${formatNum(sd.holders)}</strong></span>` : ''}
+                                ${sd.change_24h != null ? `<span>24h: <strong class="${sd.change_24h >= 0 ? 'text-green-400' : 'text-red-400'}">${sd.change_24h >= 0 ? '+' : ''}${sd.change_24h.toFixed(1)}%</strong></span>` : ''}
+                                ${sd.change_1h != null ? `<span>1h: <strong class="${sd.change_1h >= 0 ? 'text-green-400' : 'text-red-400'}">${sd.change_1h >= 0 ? '+' : ''}${sd.change_1h.toFixed(1)}%</strong></span>` : ''}
+                                ${sd.market_cap != null ? `<span>MCap: <strong class="text-neutral-200">${formatUsd(sd.market_cap)}</strong></span>` : ''}
+                                ${sd.price != null ? `<span>Price: <strong class="text-neutral-200">${sd.price < 0.01 ? sd.price.toExponential(2) : '$' + sd.price.toFixed(6)}</strong></span>` : ''}
+                                ${sd.source ? `<span>Source: <strong class="text-neutral-200">${sd.source}</strong></span>` : ''}
+                                ${d.market_heat != null ? `<span>Market Heat: <strong class="text-orange-400">${(d.market_heat * 100).toFixed(0)}%</strong></span>` : ''}
+                            </div>
+                            ${sd.safety ? `
+                            <div class="flex gap-4 mt-2 p-4 bg-black/30 rounded-xl">
+                                ${safetyBadge('Freeze Authority', sd.safety.has_freeze_authority)}
+                                ${safetyBadge('Mint Authority', sd.safety.has_mint_authority)}
+                                ${sd.safety.is_honeypot != null ? safetyBadge('Honeypot', sd.safety.is_honeypot) : ''}
+                            </div>` : ''}
+                            ${d.type === 'actionable' ? `
+                            <div class="mt-3">
+                                <button onclick="proposeLaunch(${JSON.stringify({symbol:sd.symbol,name:sd.name,score:sd.score,signal_type:sd.signal_type,breakdown:sd.breakdown,change_24h:sd.change_24h,change_1h:sd.change_1h,volume_24h:sd.volume_24h,liquidity:sd.liquidity,holders:sd.holders,market_cap:sd.market_cap,price:sd.price,source:sd.source,safety:sd.safety}).replace(/"/g, '&quot;')}, event)" class="w-full py-2.5 bg-green-500/10 text-green-400 text-[11px] font-bold uppercase rounded-lg hover:bg-green-500/20 border border-green-500/20 transition-colors flex items-center justify-center gap-2">
+                                    ${icon('rocket', 'w-4 h-4')}
+                                    Propose Launch
+                                </button>
+                            </div>` : ''}
+                            ${d.mint ? `<div class="mt-2 text-[10px] text-neutral-600 mono">Mint: ${d.mint}</div>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+                // Launches sidebar
+                const launchContainer = document.getElementById('launch-list');
+                launchContainer.innerHTML = '';
+                if (launches.length === 0) {
+                    launchContainer.innerHTML = '<div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No active launches yet. Click "Propose Launch" on an actionable token.</div>';
+                } else {
+                    launches.slice(-5).reverse().forEach(l => {
+                        const div = document.createElement('div');
+                        div.className = 'p-4 bg-white/5 rounded-xl border border-white/5 hover:border-green-500/20 transition-all';
+                        div.innerHTML = `
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-bold text-white">$${l.symbol}</span>
+                                <span class="text-[10px] font-bold text-green-400 mono">${timeAgo(l.launched_at)}</span>
+                            </div>
+                            <div class="text-[10px] text-neutral-500 mt-1">${l.platform} &middot; ${l.mint.substring(0, 12)}...</div>
+                            ${l.cost_sol ? `<div class="text-[10px] text-neutral-500 mt-1">Cost: ${l.cost_sol.toFixed(4)} SOL</div>` : ''}
+                        `;
+                        launchContainer.appendChild(div);
+                    });
+                }
+
+                // Guardian Alerts
+                const alertContainer = document.getElementById('guardian-alerts');
+                alertContainer.innerHTML = '';
+                let allAlerts = [];
+                guardians.forEach(g => { if (g.alerts) g.alerts.forEach(a => allAlerts.push({...a, symbol: g.symbol})); });
+                allAlerts.sort((a, b) => b.timestamp - a.timestamp);
+                allAlerts = allAlerts.slice(0, 10);
+
+                if (allAlerts.length === 0) {
+                    alertContainer.innerHTML = '<div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No alerts. Alerts appear when a launched token is monitored.</div>';
+                } else {
+                    allAlerts.forEach(a => {
+                        const div = document.createElement('div');
+                        const cls = a.severity === 'critical' ? 'border-red-500/30 bg-red-500/5' : a.severity === 'warning' ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-white/5 bg-white/5';
+                        const tcls = a.severity === 'critical' ? 'text-red-400' : a.severity === 'warning' ? 'text-yellow-400' : 'text-neutral-400';
+                        const iconName = a.severity === 'critical' ? 'alert-triangle' : a.severity === 'warning' ? 'alert-circle' : 'info';
+                        div.className = `p-4 rounded-xl border ${cls}`;
+                        div.innerHTML = `
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    ${icon(iconName, 'w-3 h-3 ' + tcls)}
+                                    <span class="text-xs font-bold ${tcls}">$${a.symbol}</span>
+                                </div>
+                                <span class="text-[9px] text-neutral-500">${timeAgo(a.timestamp)}</span>
+                            </div>
+                            <p class="text-[11px] text-neutral-300 mt-1">${a.message}</p>
+                        `;
+                        alertContainer.appendChild(div);
+                    });
+                }
+
+                // Guardian Performance
+                const perfContainer = document.getElementById('guardian-performance');
+                perfContainer.innerHTML = '';
+                const guardiansWithData = guardians.filter(g => g.current_price != null || g.pnl_pct != null);
+                if (guardiansWithData.length === 0) {
+                    perfContainer.innerHTML = '<div class="text-xs text-neutral-500 italic p-4 bg-white/5 rounded-xl">No guarded tokens with performance data yet.</div>';
+                } else {
+                    guardiansWithData.forEach(g => {
+                        const div = document.createElement('div');
+                        const pnlColor = (g.pnl_pct || 0) >= 0 ? 'text-green-400' : 'text-red-400';
+                        const uptimeH = Math.floor((g.uptime_seconds || 0) / 3600);
+                        const uptimeM = Math.floor(((g.uptime_seconds || 0) % 3600) / 60);
+                        div.className = 'p-4 bg-white/5 rounded-xl border border-white/5';
+                        div.innerHTML = `
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-bold text-white uppercase">$${g.symbol}</span>
+                                <span class="text-[10px] font-bold ${g.active ? 'text-green-400' : 'text-red-400'}">${g.active ? 'ACTIVE' : 'INACTIVE'}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-[10px] text-neutral-400">
+                                <div>Price: <strong class="text-neutral-200">${g.current_price ? (g.current_price < 0.01 ? g.current_price.toExponential(2) : '$' + g.current_price.toFixed(6)) : '—'}</strong></div>
+                                <div>PnL: <strong class="${pnlColor}">${g.pnl_pct != null ? (g.pnl_pct >= 0 ? '+' : '') + g.pnl_pct.toFixed(1) + '%' : '—'}</strong></div>
+                                <div>24h: <strong class="${(g.price_change_pct || 0) >= 0 ? 'text-green-400' : 'text-red-400'}">${g.price_change_pct != null ? ((g.price_change_pct >= 0 ? '+' : '') + g.price_change_pct.toFixed(1) + '%') : '—'}</strong></div>
+                                <div>Vol: <strong class="text-neutral-200">${formatUsd(g.volume_24h)}</strong></div>
+                                <div>Holders: <strong class="text-neutral-200">${formatNum(g.holders)}</strong></div>
+                                <div>Liq: <strong class="text-neutral-200">${formatUsd(g.liquidity)}</strong></div>
+                                <div>Uptime: <strong class="text-neutral-200">${uptimeH}h ${uptimeM}m</strong></div>
+                                <div>Alerts: <strong class="text-neutral-200">${(g.alerts || []).length}</strong></div>
+                            </div>
+                        `;
+                        perfContainer.appendChild(div);
+                    });
+                }
+            } catch (err) {
+                console.error("Dashboard Sync Error:", err);
+            }
+        }
+
+        fetchDashboard();
+        setInterval(fetchDashboard, 5000);
+    </script>
+</body>
+</html>

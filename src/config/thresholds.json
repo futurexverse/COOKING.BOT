@@ -1,0 +1,88 @@
+{
+  "scoring": {
+    "weights": {
+      "volume_spike": 0.25,
+      "liquidity_depth": 0.20,
+      "price_momentum_24h": 0.20,
+      "price_momentum_1h": 0.15,
+      "holder_growth": 0.10,
+      "safety_score": 0.10
+    },
+    "thresholds": {
+      "actionable_gate": 0.70,
+      "watchlist_gate": 0.45,
+      "min_liquidity_usd": 10000,
+      "min_volume_24h_usd": 50000,
+      "min_holders": 50,
+      "max_freeze_authority": true,
+      "max_mint_authority": false
+    },
+    "scoring_ranges": {
+      "volume_spike": {
+        "excellent": 3.0,
+        "good": 2.0,
+        "moderate": 1.5,
+        "poor": 1.0
+      },
+      "liquidity_depth": {
+        "excellent": 500000,
+        "good": 100000,
+        "moderate": 50000,
+        "poor": 10000
+      }
+    }
+  },
+  "launch": {
+    "min_market_heat": 0.60,
+    "min_confidence": 0.75,
+    "approval_timeout_ms": 300000,
+    "platforms": {
+      "pumpfun": {
+        "priority": 1,
+        "max_initial_buy_sol": 1.0,
+        "slippage_bps": 500
+      },
+      "raydium": {
+        "priority": 2,
+        "min_initial_liquidity_sol": 5.0,
+        "slippage_bps": 300
+      }
+    },
+    "wallet": {
+      "min_sol_balance": 2.0,
+      "max_sol_per_launch": 5.0,
+      "gas_buffer_sol": 0.01
+    }
+  },
+  "guardian": {
+    "monitor_interval_seconds": 60,
+    "rug_detection": {
+      "liquidity_drop_threshold_pct": 50,
+      "freeze_authority_alert": true,
+      "honeypot_simulation": true,
+      "max_sell_tax_pct": 10
+    },
+    "performance": {
+      "price_alert_threshold_pct": 20,
+      "volume_alert_threshold_multiplier": 3.0,
+      "holder_milestone_alerts": [100, 500, 1000, 5000, 10000]
+    },
+    "liquidity": {
+      "stop_loss_pct": -30,
+      "take_profit_pct": 100,
+      "trailing_stop_enabled": false,
+      "trailing_stop_pct": 15
+    },
+    "alerts": {
+      "telegram_enabled": true,
+      "tweet_enabled": true,
+      "alert_cooldown_seconds": 300
+    }
+  },
+  "dedup": {
+    "tweet_dedupe_window_hours": 24,
+    "anchor_cooldown_minutes": 10,
+    "diversity_last_n_posts": 2,
+    "similarity_threshold": 0.8
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+*.log
+data/
+ORACLE v0.5 (Memecoin-first + Helius enrichment + no disclaimers + Dex link).json

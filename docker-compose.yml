@@ -1,0 +1,21 @@
+services:
+  oracle-engine:
+    build:
+      context: .
+      target: api
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: always
+
+  oracle-bot:
+    build:
+      context: .
+      target: bot
+    env_file:
+      - .env
+    restart: always
