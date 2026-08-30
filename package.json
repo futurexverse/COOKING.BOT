@@ -11,7 +11,6 @@
         "dev": "tsx watch src/server.ts",
         "dev:bot": "tsx watch src/bot/index.ts",
         "build": "tsc",
-        "postinstall": "npm run build",
         "test": "vitest run",
         "lint": "eslint .",
         "format": "prettier --write ."
