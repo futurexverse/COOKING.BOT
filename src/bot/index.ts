@@ -4,6 +4,7 @@ import { evaluateLaunchConditions } from "../launch/criteria.js";
 import { executeLaunch, getActiveLaunches } from "../launch/launcher.js";
 import { processApproval } from "../social/approval.js";
 import { startTelegramBot } from "../social/telegram-bot.js";
+import { refreshNarratives } from "../market/narrative.js";
 import {
   runGuardianCycle,
   getAllActiveGuardians,
@@ -105,9 +106,17 @@ async function runScanCycle(): Promise<void> {
 }
 
 async function runLaunchCycle(): Promise<void> {
+  let trendingNarratives: string[] = [];
+  try {
+    const narrativeAnalysis = await refreshNarratives();
+    trendingNarratives = narrativeAnalysis.trending_narratives;
+  } catch {
+    trendingNarratives = [];
+  }
+
   const proposal = await evaluateLaunchConditions({
     market_heat: 0.5,
-    trending_narratives: [],
+    trending_narratives: trendingNarratives,
   });
 
   console.log(

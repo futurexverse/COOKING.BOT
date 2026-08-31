@@ -8,6 +8,9 @@ import type {
 import { fetchJupiterTrending } from "./sources/jupiter.js";
 import { fetchDexscreenerTrending } from "./sources/dexscreener.js";
 import { fetchTokenSafety } from "./sources/helius.js";
+import { fetchPumpFunTrending } from "./sources/pumpfun.js";
+import { fetchLunarCrushTrending } from "./sources/lunacrush.js";
+import { refreshNarratives, getNarrativeScore, type NarrativeAnalysis } from "./narrative.js";
 import {
   rankTokens,
   filterBlacklisted,
@@ -63,6 +66,48 @@ export async function analyzeMarket(
   const gated = filtered.filter(passesBasicGates);
 
   const scored = rankTokens(gated);
+
+  let narrativeAnalysis: NarrativeAnalysis | null = null;
+  try {
+    narrativeAnalysis = await refreshNarratives();
+  } catch (err) {
+    console.error("[Analyzer] Narrative refresh failed:", (err as Error).message);
+  }
+
+  for (const sig of scored) {
+    if (narrativeAnalysis) {
+      const { score: narrativeScore, matched_narratives } = getNarrativeScore(
+        sig.name || "",
+        sig.symbol,
+        narrativeAnalysis
+      );
+      sig.narrative_score = narrativeScore;
+      sig.matched_narratives = matched_narratives;
+
+      const narrativeBoost = Math.round(narrativeScore * 0.15);
+      sig.score = Math.min(1, sig.score + narrativeBoost / 100);
+
+      if (matched_narratives.length > 0) {
+        sig.breakdown["narrative_boost"] = narrativeBoost;
+      }
+    }
+
+    if (sig.mint && process.env.HELIUS_API_KEY) {
+      const safety = await fetchTokenSafety(sig.mint);
+      if (safety) {
+        sig.safety = {
+          has_freeze_authority: safety.has_freeze_authority,
+          has_mint_authority: safety.has_mint_authority,
+        };
+        if (
+          safety.has_freeze_authority &&
+          process.env.ORACLE_TOP5_REJECT_FREEZE_AUTHORITY !== "false"
+        ) {
+          sig.score *= 0.5;
+        }
+      }
+    }
+  }
 
   for (const sig of scored) {
     if (sig.mint && process.env.HELIUS_API_KEY) {
@@ -135,33 +180,67 @@ function calculateMarketHeat(candidates: number, bestScore: number): number {
 }
 
 async function fetchTrendingFromSource(): Promise<TokenCandidate[]> {
-  const source = process.env.ORACLE_TRENDING_SOURCE || "jupiter";
+  const source = process.env.ORACLE_TRENDING_SOURCE || "dexscreener";
   const limit = parseInt(
     process.env.ORACLE_JUPITER_TRENDING_LIMIT || "50",
     10
   );
 
-  try {
-    switch (source) {
-      case "dexscreener":
+  const allCandidates: TokenCandidate[] = [];
+
+  const primaryPromise = (async () => {
+    try {
+      switch (source) {
+        case "dexscreener":
+          return await fetchDexscreenerTrending(
+            process.env.DEXSCREENER_QUERY || "solana"
+          );
+        case "jupiter":
+          return await fetchJupiterTrending(limit);
+        default:
+          return await fetchDexscreenerTrending(
+            process.env.DEXSCREENER_QUERY || "solana"
+          );
+      }
+    } catch (err) {
+      console.log(`[Analyzer] ${source} failed:`, (err as Error).message);
+      try {
         return await fetchDexscreenerTrending(
           process.env.DEXSCREENER_QUERY || "solana"
         );
-      case "jupiter":
-      default:
-        return await fetchJupiterTrending(limit);
+      } catch {
+        return [];
+      }
     }
-  } catch (err) {
-    console.log(`[Analyzer] ${source} failed, trying Dexscreener fallback:`, (err as Error).message);
-    try {
-      return await fetchDexscreenerTrending(
-        process.env.DEXSCREENER_QUERY || "solana"
-      );
-    } catch (fallbackErr) {
-      console.error("[Analyzer] Dexscreener fallback also failed:", (fallbackErr as Error).message);
-      return [];
-    }
-  }
+  })();
+
+  const pumpfunPromise = fetchPumpFunTrending().catch((err) => {
+    console.error("[Analyzer] Pump.fun fetch failed:", (err as Error).message);
+    return [];
+  });
+
+  const lunacrushPromise = fetchLunarCrushTrending().catch((err) => {
+    console.error("[Analyzer] LunarCrush fetch failed:", (err as Error).message);
+    return [];
+  });
+
+  const [primary, pfTokens, lcTokens] = await Promise.allSettled([
+    primaryPromise,
+    pumpfunPromise,
+    lunacrushPromise,
+  ]);
+
+  if (primary.status === "fulfilled") allCandidates.push(...primary.value);
+  if (pfTokens.status === "fulfilled") allCandidates.push(...pfTokens.value);
+  if (lcTokens.status === "fulfilled") allCandidates.push(...lcTokens.value);
+
+  const seen = new Set<string>();
+  return allCandidates.filter((t) => {
+    const key = t.mint || t.symbol;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function getScoredTokens(): ScoredSignal[] {

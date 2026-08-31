@@ -79,6 +79,12 @@ function calculateConfidence(
     reasons.push(`Hot market (${(marketHeat * 100).toFixed(0)}%)`);
   }
 
+  if (signal.matched_narratives && signal.matched_narratives.length > 0) {
+    const narrativeBoost = signal.narrative_score ? Math.min(0.15, signal.narrative_score / 100 * 0.15) : 0.05;
+    confidence += narrativeBoost;
+    reasons.push(`Narrative match (${signal.matched_narratives.join(", ")})`);
+  }
+
   if (recentLaunches >= 3) {
     confidence -= 0.15;
     reasons.push(`Market saturated (${recentLaunches} recent launches)`);

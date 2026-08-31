@@ -1,4 +1,11 @@
 import { processApproval, getPendingProposals } from "./approval.js";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = join(__dirname, "..", "..");
+const GROUP_IDS_FILE = join(ROOT_DIR, "data", "group_ids.json");
 
 let lastUpdateId = 0;
 let polling = false;
@@ -18,8 +25,45 @@ function getApi(): string {
   return `https://api.telegram.org/bot${getBotToken()}`;
 }
 
+function loadGroupIds(): string[] {
+  try {
+    if (existsSync(GROUP_IDS_FILE)) {
+      return JSON.parse(readFileSync(GROUP_IDS_FILE, "utf-8"));
+    }
+  } catch {}
+  return [];
+}
+
+function saveGroupIds(ids: string[]): void {
+  const dir = dirname(GROUP_IDS_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(GROUP_IDS_FILE, JSON.stringify(ids, null, 2));
+}
+
+function addGroupId(id: string): void {
+  const ids = loadGroupIds();
+  if (!ids.includes(id)) {
+    ids.push(id);
+    saveGroupIds(ids);
+    console.log(`[Telegram] Added group/channel: ${id}`);
+  }
+}
+
+function removeGroupId(id: string): void {
+  const ids = loadGroupIds().filter((i) => i !== id);
+  saveGroupIds(ids);
+  console.log(`[Telegram] Removed group/channel: ${id}`);
+}
+
+function getAllChatIds(): string[] {
+  const envIds = getChatIds();
+  const groupIds = loadGroupIds();
+  const combined = new Set([...envIds, ...groupIds]);
+  return Array.from(combined);
+}
+
 async function sendMessage(
-  chatId: number,
+  chatId: number | string,
   text: string,
   extra?: Record<string, unknown>
 ): Promise<void> {
@@ -36,28 +80,27 @@ async function sendMessage(
       }),
     });
     const result = (await resp.json()) as { ok: boolean; description?: string; error_code?: number };
-    console.log("[Telegram] sendMessage result:", JSON.stringify(result));
-    if (!result.ok && result.description?.includes("parse")) {
-      resp = await fetch(`${getApi()}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          disable_web_page_preview: true,
-          ...extra,
-        }),
-      });
+    if (!result.ok) {
+      console.error(`[Telegram] sendMessage error to ${chatId}:`, result.description);
+      if (result.description?.includes("parse")) {
+        resp = await fetch(`${getApi()}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            disable_web_page_preview: true,
+            ...extra,
+          }),
+        });
+      }
     }
   } catch (err) {
     console.error("[Telegram] Send failed:", err);
   }
 }
 
-async function answerCallbackQuery(
-  callbackQueryId: string,
-  text?: string
-): Promise<void> {
+async function answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void> {
   try {
     await fetch(`${getApi()}/answerCallbackQuery`, {
       method: "POST",
@@ -70,7 +113,7 @@ async function answerCallbackQuery(
 }
 
 async function editMessageReplyMarkup(
-  chatId: number,
+  chatId: number | string,
   messageId: number,
   inlineKeyboard?: unknown[][]
 ): Promise<void> {
@@ -89,8 +132,19 @@ async function editMessageReplyMarkup(
   }
 }
 
+async function getBotInfo(): Promise<{ id: number; username: string } | null> {
+  try {
+    const resp = await fetch(`${getApi()}/getMe`);
+    const data = (await resp.json()) as { ok: boolean; result: { id: number; username: string } };
+    if (data.ok) return data.result;
+  } catch {}
+  return null;
+}
+
 const QA: Record<string, string> = {
   greet: `<b>Hey! Welcome to COOKING.</b>\n\nI'm your autonomous Solana token launch agent. I scan the market, score tokens, propose launches, and guard your positions after deployment - all on autopilot.\n\n<b>Ask me anything:</b>\n\n/scoring - How the scoring algorithm works\n/launch - How token launching works\n/guardian - Post-launch monitoring\n/costs - What it costs\n/heat - Market heat explained\n/config - Current thresholds\n/proposals - View pending launches\n/status - System status\n/help - All commands\n\nJust type a question like "how does scoring work" or "what does the guardian do" and I'll answer it.`,
+
+  group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/help - All commands\n\nYou'll receive proposals with Approve/Reject buttons when the engine finds a strong signal.`,
 
   what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Solana token launch agent. It scans the market, scores tokens, proposes launches, and guards your positions after deployment - all on autopilot.`,
 
@@ -116,7 +170,6 @@ const QA: Record<string, string> = {
 async function matchQuestion(text: string): Promise<string | null> {
   const lower = text.toLowerCase().trim();
 
-  // Slash commands
   if (lower === "/start" || lower === "/help") return QA.greet;
   if (lower === "/status") return handleStatus();
   if (lower === "/proposals") return handleProposals();
@@ -136,47 +189,36 @@ async function matchQuestion(text: string): Promise<string | null> {
     return await handleRejectCommand(id);
   }
 
-  // Greetings
   if (lower === "hi" || lower === "hey" || lower === "hello" || lower === "yo" || lower === "sup" || lower === "reetings")
     return QA.greet;
 
-  // Natural language - scoring / algorithm
   if (lower.includes("score") || lower.includes("scoring") || lower.includes("algorithm") || lower.includes("factor") || lower.includes("weighted") || lower.includes("rating") || lower.includes("decide") || lower.includes("determine") || lower.includes("how does it decide"))
     return QA.score;
 
-  // Natural language - guardian / monitoring / rug
   if (lower.includes("guard") || lower.includes("monitor") || lower.includes("rug") || lower.includes("scam") || lower.includes("protect") || lower.includes("stop loss") || lower.includes("take profit") || lower.includes("alert"))
     return QA.guardian;
 
-  // Natural language - cost / fee / pay / price / how much
   if (lower.includes("cost") || lower.includes("fee") || lower.includes("pay") || lower.includes("price") || lower.includes("how much") || lower.includes("expensive") || lower.includes("cheap") || lower.includes("sol"))
     return QA.cost;
 
-  // Natural language - launch / deploy / create / buy / swap
   if (lower.includes("launch") || lower.includes("deploy") || lower.includes("create") || lower.includes("buy") || lower.includes("swap") || lower.includes("token") || lower.includes("pump") || lower.includes("raydium"))
     return QA.launch;
 
-  // Natural language - heat / market / trend
   if (lower.includes("heat") || lower.includes("market") || lower.includes("trend") || lower.includes("bull") || lower.includes("bear") || lower.includes("hot") || lower.includes("cold"))
     return QA.heat;
 
-  // Natural language - approve / reject / permission
   if (lower.includes("approv") || lower.includes("reject") || lower.includes("confirm") || lower.includes("permission") || lower.includes("sign"))
     return QA.approve;
 
-  // Natural language - chain / network / solana / blockchain
   if (lower.includes("chain") || lower.includes("solana") || lower.includes("network") || lower.includes("blockchain") || lower.includes("support") || lower.includes("compatible"))
     return QA.chain;
 
-  // Natural language - how / work / does / operate
   if (lower.includes("how") || lower.includes("work") || lower.includes("does") || lower.includes("operate") || lower.includes("function"))
     return QA.how;
 
-  // Natural language - what is / about / explain / tell me (catch-all, keep last)
   if (lower.includes("what") || lower.includes("about") || lower.includes("explain") || lower.includes("tell me") || lower.includes("describe"))
     return QA.what;
 
-  // Natural language - who / built / made / developer
   if (lower.includes("who") || lower.includes("built") || lower.includes("made") || lower.includes("developer") || lower.includes("author"))
     return QA.what;
 
@@ -188,6 +230,7 @@ function handleStatus(): string {
   const pending = proposals.filter((p) => p.status === "pending").length;
   const approved = proposals.filter((p) => p.status === "approved").length;
   const rejected = proposals.filter((p) => p.status === "rejected").length;
+  const groups = loadGroupIds().length;
 
   return [
     `<b>COOKING System Status</b>`,
@@ -195,6 +238,7 @@ function handleStatus(): string {
     `Proposals: ${pending} pending | ${approved} approved | ${rejected} rejected`,
     `Bot: Online`,
     `Guardian: Active`,
+    `Groups/Channels: ${groups}`,
     ``,
     `Send /proposals to see pending launches.`,
   ].join("\n");
@@ -271,12 +315,39 @@ const QUESTION_BUTTONS: Array<Array<{ text: string; callback_data: string }>> = 
   [{ text: "System status", callback_data: "q:status" }],
 ];
 
+function isGroupChat(chatType: string): boolean {
+  return chatType === "group" || chatType === "supergroup";
+}
+
+function isChannelChat(chatType: string): boolean {
+  return chatType === "channel";
+}
+
+function isMentionedInText(text: string, botUsername: string): boolean {
+  const lower = text.toLowerCase();
+  return lower.includes(`@${botUsername.toLowerCase()}`);
+}
+
 async function handleMessage(msg: Record<string, unknown>): Promise<void> {
   const chat = msg.chat as Record<string, unknown>;
   const chatId = chat.id as number;
+  const chatType = (chat.type as string) || "private";
   const text = (msg.text as string) || "";
+  const entities = (msg.entities || []) as Array<Record<string, unknown>>;
 
-  console.log(`[Telegram] Message from ${chatId}: ${text}`);
+  const botInfo = await getBotInfo();
+  const botUsername = botInfo?.username || "";
+
+  const isCommand = entities.some((e) => e.type === "bot_command");
+  const isMentioned = isMentionedInText(text, botUsername);
+
+  console.log(`[Telegram] Message from ${chatId} (${chatType}): ${text}`);
+
+  if (isGroupChat(chatType) || isChannelChat(chatType)) {
+    if (!isCommand && !isMentioned) {
+      return;
+    }
+  }
 
   try {
     const reply = await matchQuestion(text);
@@ -336,30 +407,35 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
   if (data.startsWith("approve:")) {
     const decisionId = data.split(":")[1];
     const result = await processApproval({ decision_id: decisionId, approved: true });
-    await answerCallbackQuery(
-      cb.id as string,
-      result.success ? "Approved!" : result.message
-    );
+    await answerCallbackQuery(cb.id as string, result.success ? "Approved!" : result.message);
     if (chatId && messageId) {
       await editMessageReplyMarkup(chatId, messageId, []);
-      await sendMessage(
-        chatId,
-        `<b>Launch Approved</b>\nID: <code>${decisionId}</code>\n${result.message}`
-      );
+      await sendMessage(chatId, `<b>Launch Approved</b>\nID: <code>${decisionId}</code>\n${result.message}`);
     }
   } else if (data.startsWith("reject:")) {
     const decisionId = data.split(":")[1];
     const result = await processApproval({ decision_id: decisionId, approved: false });
-    await answerCallbackQuery(
-      cb.id as string,
-      result.success ? "Rejected!" : result.message
-    );
+    await answerCallbackQuery(cb.id as string, result.success ? "Rejected!" : result.message);
     if (chatId && messageId) {
       await editMessageReplyMarkup(chatId, messageId, []);
-      await sendMessage(
-        chatId,
-        `<b>Launch Rejected</b>\nID: <code>${decisionId}</code>\n${result.message}`
-      );
+      await sendMessage(chatId, `<b>Launch Rejected</b>\nID: <code>${decisionId}</code>\n${result.message}`);
+    }
+  }
+}
+
+async function handleMyChatMember(update: Record<string, unknown>): Promise<void> {
+  const myChatMember = update.my_chat_member as Record<string, unknown>;
+  const chat = myChatMember.chat as Record<string, unknown>;
+  const chatId = String(chat.id);
+  const chatType = chat.type as string;
+  const status = (myChatMember.new_chat_member as Record<string, unknown>)?.status as string;
+
+  if (isGroupChat(chatType) || isChannelChat(chatType)) {
+    if (status === "member" || status === "administrator") {
+      addGroupId(chatId);
+      await sendMessage(Number(chatId), QA.group_welcome);
+    } else if (status === "left" || status === "kicked") {
+      removeGroupId(chatId);
     }
   }
 }
@@ -384,7 +460,9 @@ async function pollUpdates(): Promise<void> {
     for (const update of data.result) {
       lastUpdateId = (update.update_id as number) || lastUpdateId;
 
-      if (update.message) {
+      if (update.my_chat_member) {
+        await handleMyChatMember(update);
+      } else if (update.message) {
         await handleMessage(update.message as Record<string, unknown>);
       } else if (update.callback_query) {
         await handleCallbackQuery(update.callback_query as Record<string, unknown>);
@@ -404,6 +482,7 @@ export function startTelegramBot(): void {
   }
 
   console.log(`[Telegram] Starting COOKING bot (chat IDs: ${getChatIds().join(", ")})`);
+  console.log(`[Telegram] Group/Channel IDs: ${loadGroupIds().join(", ") || "none yet"}`);
 
   setInterval(pollUpdates, 3000);
   pollUpdates();
@@ -417,19 +496,22 @@ export async function sendProposalToTelegram(proposal: {
   estimated_cost_sol: number;
   reasoning: string;
 }): Promise<void> {
-  if (!getBotToken() || getChatIds().length === 0) return;
+  if (!getBotToken()) return;
+
+  const allChatIds = getAllChatIds();
+  if (allChatIds.length === 0) return;
 
   const confPct = (proposal.confidence * 100).toFixed(0);
   const text = [
-    `🚀 *COOKING Proposal — $${proposal.symbol}*`,
+    `🚀 <b>COOKING Proposal — $${proposal.symbol}</b>`,
     ``,
-    `Confidence: *${confPct}%*`,
+    `Confidence: <b>${confPct}%</b>`,
     `Platform: ${proposal.platform}`,
     `Cost: ${proposal.estimated_cost_sol} SOL`,
     ``,
-    `_${proposal.reasoning}_`,
+    `<i>${proposal.reasoning}</i>`,
     ``,
-    `ID: \`${proposal.decision_id}\``,
+    `ID: <code>${proposal.decision_id}</code>`,
   ].join("\n");
 
   const inlineKeyboard = [
@@ -439,9 +521,20 @@ export async function sendProposalToTelegram(proposal: {
     ],
   ];
 
-  for (const chatId of getChatIds()) {
-    await sendMessage(parseInt(chatId, 10), text, { reply_markup: { inline_keyboard: inlineKeyboard } });
+  for (const chatId of allChatIds) {
+    await sendMessage(chatId, text, { reply_markup: { inline_keyboard: inlineKeyboard } });
   }
 
-  console.log(`[Telegram] Proposal sent for $${proposal.symbol}`);
+  console.log(`[Telegram] Proposal sent for $${proposal.symbol} to ${allChatIds.length} chats`);
+}
+
+export async function sendAlertToTelegram(text: string): Promise<void> {
+  if (!getBotToken()) return;
+
+  const allChatIds = getAllChatIds();
+  if (allChatIds.length === 0) return;
+
+  for (const chatId of allChatIds) {
+    await sendMessage(chatId, text);
+  }
 }

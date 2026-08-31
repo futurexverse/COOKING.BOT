@@ -12,7 +12,9 @@ export const TokenCandidateSchema = z.object({
   holders: z.number().optional(),
   market_cap: z.number().optional(),
   price: z.number().optional(),
-  source: z.enum(["jupiter", "dexscreener", "pumpfun"]).optional(),
+  source: z.enum(["jupiter", "dexscreener", "pumpfun", "lunacrush"]).optional(),
+  narrative_match: z.array(z.string()).optional(),
+  narrative_score: z.number().optional(),
 });
 
 export type TokenCandidate = z.infer<typeof TokenCandidateSchema>;
@@ -35,6 +37,8 @@ export const ScoredSignalSchema = z.object({
   score: z.number().min(0).max(1),
   signal_type: z.enum(["actionable", "watchlist", "noise"]),
   breakdown: z.record(z.number()),
+  narrative_score: z.number().optional(),
+  matched_narratives: z.array(z.string()).optional(),
   change_24h: z.number(),
   change_1h: z.number().optional(),
   volume_24h: z.number(),

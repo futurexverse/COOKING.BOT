@@ -79,6 +79,13 @@
       "alert_cooldown_seconds": 300
     }
   },
+  "narrative": {
+    "cache_ttl_ms": 300000,
+    "max_narratives": 5,
+    "confidence_weight": 0.15,
+    "sources": ["pumpfun", "lunacrush"],
+    "openai_model": "gpt-5-nano"
+  },
   "dedup": {
     "tweet_dedupe_window_hours": 24,
     "anchor_cooldown_minutes": 10,
