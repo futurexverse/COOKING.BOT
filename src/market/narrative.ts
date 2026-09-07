@@ -1,5 +1,4 @@
-import { fetchPumpFunTrending } from "./sources/pumpfun.js";
-import { fetchLunarCrushTrending } from "./sources/lunacrush.js";
+import { fetchUniswapTopPools } from "./sources/uniswap.js";
 import { analyzeNarrative, type NarrativeAnalysis } from "./sources/openai.js";
 
 let cachedNarratives: NarrativeAnalysis | null = null;
@@ -19,8 +18,7 @@ const NARRATIVE_KEYWORDS: Record<string, string[]> = {
   "Gaming": ["game", "gaming", "play", "p2e", "metaverse", "virtual", "vr", "ar", "gamer"],
   "NFT": ["nft", "jpeg", "collectible", "art", "pfp", "bored ape", "crypto punk"],
   "DeFi": ["defi", "yield", "farming", "staking", "liquidity", "swap", "dex", "amm", "lending"],
-  "Layer 2": ["l2", "layer 2", "rollup", "optimistic", "zk", "zkp", "arbitrum", "optimism", "polygon"],
-  "Meme": ["meme", "doge", "pepe", " Wojak", "feels", "chad", "sigma", "grug"],
+  "Meme": ["meme", "doge", "pepe", "wojak", "feels", "chad", "sigma", "grug"],
 };
 
 export async function refreshNarratives(): Promise<NarrativeAnalysis> {
@@ -29,35 +27,36 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     return cachedNarratives;
   }
 
-  console.log("[Narrative] Fetching data from Pump.fun + LunarCrush...");
+  console.log("[Narrative] Fetching trending tokens from Dexscreener (all chains)...");
 
-  const [pumpfunData, lunacrushData] = await Promise.allSettled([
-    fetchPumpFunTrending(),
-    fetchLunarCrushTrending(),
-  ]);
+  let tokens: Awaited<ReturnType<typeof fetchUniswapTopPools>> = [];
+  try {
+    tokens = await fetchUniswapTopPools(30);
+  } catch (err) {
+    console.error("[Narrative] Dexscreener fetch failed:", err);
+  }
 
-  const pf = pumpfunData.status === "fulfilled" ? pumpfunData.value : [];
-  const lc = lunacrushData.status === "fulfilled" ? lunacrushData.value : [];
+  console.log(`[Narrative] Got ${tokens.length} tokens from Dexscreener`);
 
-  console.log(`[Narrative] Pump.fun: ${pf.length} tokens, LunarCrush: ${lc.length} tokens`);
+  if (tokens.length === 0) {
+    console.log("[Narrative] No token data available, using cached or fallback");
+    if (cachedNarratives) return cachedNarratives;
+    return fallbackAnalysis();
+  }
 
-  const pfSummary = pf.slice(0, 15).map((t) => ({
+  const tokenSummary = tokens.slice(0, 20).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
-    market_cap: t.market_cap || 0,
-    holder_count: t.holders || 0,
-    description: "",
-  }));
-
-  const lcSummary = lc.slice(0, 15).map((t) => ({
-    symbol: t.symbol,
-    name: t.name || "",
-    social_sentiment: 50,
-    social_mentions: t.holders || 0,
+    chain: t.chain || "unknown",
     volume_24h: t.volume_24h || 0,
+    market_cap: t.market_cap || 0,
+    holders: t.holders || 0,
+    change_24h: t.change_24h || 0,
   }));
 
-  const analysis = await analyzeNarrative(pfSummary, lcSummary);
+  tokenSummary.sort((a, b) => b.volume_24h - a.volume_24h);
+
+  const analysis = await analyzeNarrative(tokenSummary);
 
   cachedNarratives = analysis;
   lastNarrativeFetch = now;
@@ -113,4 +112,12 @@ export function getNarrativeBoost(
 
 export function isNarrativeStale(): boolean {
   return Date.now() - lastNarrativeFetch > NARRATIVE_CACHE_TTL;
+}
+
+function fallbackAnalysis(): NarrativeAnalysis {
+  return {
+    trending_narratives: ["AI agents", "PolitiFi", "Cat coins", "RWA tokenization", "DePIN"],
+    theme_scores: { "AI agents": 75, "PolitiFi": 65, "Cat coins": 60, "RWA tokenization": 50, "DePIN": 45 },
+    reasoning: "Default analysis — live data unavailable.",
+  };
 }
