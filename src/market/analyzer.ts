@@ -22,6 +22,8 @@ import { randomUUID } from "crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
+let lastNarrativeSentAt = 0;
+
 const DATA_DIR = process.env.ORACLE_DATA_DIR || "data";
 const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
 
@@ -72,6 +74,17 @@ export async function analyzeMarket(
   let narrativeAnalysis: NarrativeAnalysis | null = null;
   try {
     narrativeAnalysis = await refreshNarratives();
+
+    const now = Date.now();
+    if (narrativeAnalysis && now - lastNarrativeSentAt > 600000) {
+      lastNarrativeSentAt = now;
+      const { sendNarrativeToTelegram } = await import("../social/telegram-bot.js");
+      sendNarrativeToTelegram({
+        trending_narratives: narrativeAnalysis.trending_narratives,
+        theme_scores: narrativeAnalysis.theme_scores,
+        reasoning: narrativeAnalysis.reasoning,
+      }).catch(() => {});
+    }
   } catch (err) {
     console.error("[Analyzer] Narrative refresh failed:", (err as Error).message);
   }

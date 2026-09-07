@@ -312,6 +312,28 @@
 
         <!-- MAIN GRID -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left: Narrative Intelligence -->
+            <div class="lg:col-span-12 mb-2">
+                <div class="glass p-6 rounded-2xl border border-purple-500/20">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold tracking-tight flex items-center gap-3">
+                            <span class="w-2 h-6 bg-purple-600 rounded-full"></span>
+                            Narrative Intelligence
+                            <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-400 uppercase">AI Powered</span>
+                        </h2>
+                        <button onclick="refreshNarratives()" id="narrative-refresh-btn" class="px-3 py-1.5 bg-purple-500/10 text-purple-400 text-[10px] font-bold uppercase rounded-lg hover:bg-purple-500/20 border border-purple-500/20 transition-colors">
+                            Refresh
+                        </button>
+                    </div>
+                    <div id="narrative-content">
+                        <div class="flex items-center justify-center py-8">
+                            <div class="w-6 h-6 border-2 border-white/10 border-t-purple-500 rounded-full animate-spin"></div>
+                            <span class="ml-3 text-xs text-neutral-500">Analyzing narratives...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Left: Neural Feed + Proposals -->
             <div class="lg:col-span-8 space-y-6">
                 <div class="flex justify-between items-center px-4">
@@ -1070,6 +1092,81 @@
 
         fetchDashboard();
         setInterval(fetchDashboard, 5000);
+
+        /* ---- Narrative Intelligence ---- */
+        async function fetchNarratives() {
+            try {
+                const resp = await fetch('/api/narrative');
+                if (!resp.ok) throw new Error('Failed to fetch');
+                const data = await resp.json();
+                renderNarratives(data);
+            } catch (err) {
+                console.error('Narrative fetch error:', err);
+                document.getElementById('narrative-content').innerHTML = `
+                    <div class="text-center py-4 text-neutral-500 text-xs">Failed to load narratives</div>
+                `;
+            }
+        }
+
+        function renderNarratives(data) {
+            const container = document.getElementById('narrative-content');
+            if (!data || !data.trending_narratives || data.trending_narratives.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-neutral-500 text-xs">No narrative data yet</div>';
+                return;
+            }
+
+            const narratives = data.trending_narratives;
+            const scores = data.theme_scores || {};
+            const reasoning = data.reasoning || '';
+
+            let html = '<div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">';
+            for (const n of narratives) {
+                const score = scores[n] || 50;
+                const barColor = score >= 70 ? 'from-green-500 to-emerald-400' : score >= 50 ? 'from-amber-500 to-yellow-400' : 'from-neutral-600 to-neutral-500';
+                const textColor = score >= 70 ? 'text-green-400' : score >= 50 ? 'text-amber-400' : 'text-neutral-400';
+                html += `
+                    <div class="p-3 bg-white/5 rounded-xl border border-white/5 hover:border-purple-500/20 transition-all">
+                        <div class="text-[11px] font-bold text-white uppercase mb-2 truncate">${n}</div>
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 bg-white/5 rounded-full h-2 p-0.5">
+                                <div class="bg-gradient-to-r ${barColor} h-full rounded-full" style="width:${score}%"></div>
+                            </div>
+                            <span class="text-sm font-bold mono ${textColor}">${score}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+
+            if (reasoning) {
+                html += `
+                    <div class="p-3 bg-purple-500/5 rounded-xl border border-purple-500/10">
+                        <div class="text-[9px] font-bold uppercase tracking-widest text-purple-400 mb-1">AI Reasoning</div>
+                        <p class="text-[11px] text-neutral-300 italic leading-relaxed">${reasoning}</p>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function refreshNarratives() {
+            const btn = document.getElementById('narrative-refresh-btn');
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+            try {
+                const resp = await fetch('/api/narrative/refresh', { method: 'POST' });
+                const data = await resp.json();
+                renderNarratives(data);
+            } catch (err) {
+                console.error('Narrative refresh error:', err);
+            }
+            btn.disabled = false;
+            btn.textContent = 'Refresh';
+        }
+
+        fetchNarratives();
+        setInterval(fetchNarratives, 300000);
 
         /* ---- Deploy Section ---- */
         async function openDeploy(proposalId) {

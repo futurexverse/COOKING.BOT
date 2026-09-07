@@ -114,6 +114,21 @@ app.get("/api/dashboard", async () => {
   return getDashboardData();
 });
 
+app.get("/api/narrative", async () => {
+  const { getCurrentNarrative, refreshNarratives } = await import("./market/narrative.js");
+  let narrative = getCurrentNarrative();
+  if (!narrative) {
+    narrative = await refreshNarratives();
+  }
+  return narrative;
+});
+
+app.post("/api/narrative/refresh", async () => {
+  const { refreshNarratives } = await import("./market/narrative.js");
+  const narrative = await refreshNarratives();
+  return narrative;
+});
+
 app.get("/api/config", async () => {
   try {
     const configRaw = readFileSync(

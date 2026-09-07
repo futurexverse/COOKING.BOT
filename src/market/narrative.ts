@@ -8,6 +8,21 @@ const NARRATIVE_CACHE_TTL = 300000;
 
 export type { NarrativeAnalysis };
 
+const NARRATIVE_KEYWORDS: Record<string, string[]> = {
+  "AI agents": ["ai", "agent", "neural", "gpt", "llm", "openai", "anthropic", "claude", "gemini", "autonomous", "machine learning", "deep learning"],
+  "PolitiFi": ["trump", "biden", "maga", "politi", "president", "election", "vote", "democrat", "republican", "congress", "senate", "white house"],
+  "Cat coins": ["cat", "kitty", "kitten", "meow", "nyan", "feline", "whiskers", "purr", "tabby", "siamese"],
+  "Dog coins": ["dog", "doge", "shib", "puppy", "woof", "bark", "canine", "poodle", "retriever", "husky"],
+  "RWA tokenization": ["rwa", "tokenized", "real world", "real-world", "asset", "treasury", "bond", "stock", "equity", "commodity"],
+  "DePIN": ["depin", "decentralized infrastructure", "iot", "sensor", "network", "node", "wireless", "5g", "helium"],
+  "Political memes": ["political", "politi", "meme", "satire", "joke", "funny", "viral"],
+  "Gaming": ["game", "gaming", "play", "p2e", "metaverse", "virtual", "vr", "ar", "gamer"],
+  "NFT": ["nft", "jpeg", "collectible", "art", "pfp", "bored ape", "crypto punk"],
+  "DeFi": ["defi", "yield", "farming", "staking", "liquidity", "swap", "dex", "amm", "lending"],
+  "Layer 2": ["l2", "layer 2", "rollup", "optimistic", "zk", "zkp", "arbitrum", "optimism", "polygon"],
+  "Meme": ["meme", "doge", "pepe", " Wojak", "feels", "chad", "sigma", "grug"],
+};
+
 export async function refreshNarratives(): Promise<NarrativeAnalysis> {
   const now = Date.now();
   if (cachedNarratives && now - lastNarrativeFetch < NARRATIVE_CACHE_TTL) {
@@ -26,7 +41,7 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
 
   console.log(`[Narrative] Pump.fun: ${pf.length} tokens, LunarCrush: ${lc.length} tokens`);
 
-  const pfSummary = pf.slice(0, 10).map((t) => ({
+  const pfSummary = pf.slice(0, 15).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
     market_cap: t.market_cap || 0,
@@ -34,7 +49,7 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     description: "",
   }));
 
-  const lcSummary = lc.slice(0, 10).map((t) => ({
+  const lcSummary = lc.slice(0, 15).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
     social_sentiment: 50,
@@ -47,8 +62,15 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
   cachedNarratives = analysis;
   lastNarrativeFetch = now;
 
-  console.log(`[Narrative] Found: ${analysis.trending_narratives.join(", ")}`);
+  console.log(`[Narrative] Trending: ${analysis.trending_narratives.join(", ")}`);
+  console.log(`[Narrative] Scores: ${JSON.stringify(analysis.theme_scores)}`);
+  console.log(`[Narrative] Reasoning: ${analysis.reasoning}`);
+
   return analysis;
+}
+
+export function getCurrentNarrative(): NarrativeAnalysis | null {
+  return cachedNarratives;
 }
 
 export function getNarrativeScore(
@@ -61,13 +83,12 @@ export function getNarrativeScore(
   let totalScore = 0;
 
   for (const narrative of narrativeAnalysis.trending_narratives) {
-    const narrativeLower = narrative.toLowerCase();
-    const keywords = narrativeLower.split(/\s+/);
+    const themeScore = narrativeAnalysis.theme_scores[narrative] || 50;
+    const keywords = NARRATIVE_KEYWORDS[narrative] || narrative.toLowerCase().split(/\s+/);
 
-    const matchedKeywords = keywords.filter((kw) => text.includes(kw));
+    const matchedKeywords = keywords.filter((kw) => text.includes(kw.toLowerCase()));
     if (matchedKeywords.length > 0) {
-      const matchRatio = matchedKeywords.length / keywords.length;
-      const themeScore = narrativeAnalysis.theme_scores[narrative] || 50;
+      const matchRatio = matchedKeywords.length / Math.min(keywords.length, 5);
       const score = matchRatio * themeScore;
       totalScore += score;
       matched.push(narrative);

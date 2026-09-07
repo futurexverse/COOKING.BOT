@@ -630,3 +630,42 @@ export async function sendAlertToTelegram(text: string): Promise<void> {
     await sendMessage(chatId, text);
   }
 }
+
+export async function sendNarrativeToTelegram(narrative: {
+  trending_narratives: string[];
+  theme_scores: Record<string, number>;
+  reasoning: string;
+}): Promise<void> {
+  if (!getBotToken()) return;
+
+  const allChatIds = getAllChatIds();
+  if (allChatIds.length === 0) return;
+
+  const narratives = narrative.trending_narratives || [];
+  const scores = narrative.theme_scores || {};
+  const reasoning = narrative.reasoning || "";
+
+  const lines = [
+    `<b>🧠 NARRATIVE INTELLIGENCE</b>`,
+    ``,
+    `<b>Trending Narratives:</b>`,
+  ];
+
+  for (const n of narratives) {
+    const score = scores[n] || 50;
+    const bar = score >= 70 ? "🔥" : score >= 50 ? "🟡" : "⚪";
+    lines.push(`${bar} <b>${n}</b> — ${score}/100`);
+  }
+
+  if (reasoning) {
+    lines.push(``, `<i>${reasoning}</i>`);
+  }
+
+  const text = lines.join("\n");
+
+  for (const chatId of allChatIds) {
+    await sendMessage(chatId, text);
+  }
+
+  console.log(`[Telegram] Narrative analysis sent to ${allChatIds.length} chats`);
+}
