@@ -1155,7 +1155,7 @@
             btn.disabled = true;
             btn.textContent = 'Analyzing...';
             try {
-                const resp = await fetch('/api/narrative/refresh', { method: 'POST' });
+                const resp = await fetch('/api/narrative/refresh');
                 const data = await resp.json();
                 renderNarratives(data);
             } catch (err) {

@@ -123,10 +123,10 @@ app.get("/api/narrative", async () => {
   return narrative;
 });
 
-app.post("/api/narrative/refresh", async () => {
+app.get("/api/narrative/refresh", async (_request, reply) => {
   const { refreshNarratives } = await import("./market/narrative.js");
   const narrative = await refreshNarratives();
-  return narrative;
+  return reply.code(200).send(narrative);
 });
 
 app.get("/api/config", async () => {
