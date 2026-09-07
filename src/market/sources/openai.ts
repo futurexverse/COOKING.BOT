@@ -46,6 +46,8 @@ export async function analyzeNarrative(
     return fallbackAnalysis();
   }
 
+  console.log(`[Gemini] Using key: ${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)} (length: ${apiKey.length})`);
+
   const tokenSummary = tokenData.slice(0, 20).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
