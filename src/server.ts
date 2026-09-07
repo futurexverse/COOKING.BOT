@@ -81,7 +81,7 @@ app.post("/api/approve/:id", async (request, reply) => {
         proposal: entry.proposal,
         status: entry.status,
         deploy_url: "https://fun.noxa.fi",
-        uniswap_url: `https://app.uniswap.org/add/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73/${(entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).mint : ""}?chainId=4663`,
+        dexscreener_url: `https://dexscreener.com/robinhood/${(entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).mint : ""}`,
       };
     }
   }
@@ -160,7 +160,7 @@ app.get("/api/deploy/:id", async (request, reply) => {
     liquidity,
     holders,
     noxa_url: "https://fun.noxa.fi",
-    uniswap_url: mint ? `https://app.uniswap.org/add/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73/${mint}?chainId=4663` : "",
+    dexscreener_url: mint ? `https://dexscreener.com/robinhood/${mint}` : "",
     explorer_url: mint ? `https://robinhoodchain.blockscout.com/address/${mint}` : "",
   };
 });

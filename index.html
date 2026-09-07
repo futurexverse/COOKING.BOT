@@ -374,8 +374,8 @@
                                 <a id="deploy-noxa-btn" href="https://fun.noxa.fi" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-purple-600 hover:bg-purple-500 transition-colors text-white">
                                     Deploy via NOXA Fun →
                                 </a>
-                                <a id="deploy-uniswap-btn" href="#" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-500 transition-colors text-white">
-                                    Create Pool on Uniswap →
+                                <a id="deploy-dexscreener-btn" href="#" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-500 transition-colors text-white">
+                                    View on Dexscreener →
                                 </a>
                                 <a id="deploy-explorer-btn" href="#" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 transition-colors text-neutral-300">
                                     View on Blockscout →
@@ -1097,10 +1097,10 @@
                 document.getElementById('deploy-stats').innerHTML = statsHtml;
 
                 document.getElementById('deploy-noxa-btn').href = data.noxa_url || 'https://fun.noxa.fi';
-                document.getElementById('deploy-uniswap-btn').href = data.uniswap_url || '#';
+                document.getElementById('deploy-dexscreener-btn').href = data.dexscreener_url || '#';
                 document.getElementById('deploy-explorer-btn').href = data.explorer_url || '#';
 
-                if (!data.uniswap_url) document.getElementById('deploy-uniswap-btn').classList.add('opacity-40', 'pointer-events-none');
+                if (!data.dexscreener_url) document.getElementById('deploy-dexscreener-btn').classList.add('opacity-40', 'pointer-events-none');
                 if (!data.explorer_url) document.getElementById('deploy-explorer-btn').classList.add('opacity-40', 'pointer-events-none');
 
                 loading.classList.add('hidden');

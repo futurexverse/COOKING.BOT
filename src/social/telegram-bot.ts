@@ -431,7 +431,7 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
         const platform = (prop?.platform as string) || "noxafun";
 
         const noxaUrl = `https://fun.noxa.fi`;
-        const uniswapUrl = `https://app.uniswap.org/add/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73/${mint}?chainId=4663`;
+        const dexscreenerUrl = `https://dexscreener.com/robinhood/${mint}`;
         const dashboardUrl = `https://cookingbot-production-bcf3.up.railway.app/#deploy`;
         const explorerUrl = `https://robinhoodchain.blockscout.com/address/${mint}`;
 
@@ -451,7 +451,10 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
             { text: "Deploy via NOXA Fun", url: noxaUrl },
           ],
           [
-            { text: "Create Pool on Uniswap", url: uniswapUrl },
+            { text: "View on Dexscreener", url: dexscreenerUrl },
+          ],
+          [
+            { text: "View on Blockscout", url: explorerUrl },
           ],
           [
             { text: "Open Dashboard Deploy", url: dashboardUrl },
