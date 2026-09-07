@@ -83,8 +83,8 @@
     "cache_ttl_ms": 300000,
     "max_narratives": 5,
     "confidence_weight": 0.15,
-    "sources": ["pumpfun", "lunacrush"],
-    "openai_model": "gpt-5-nano"
+    "sources": ["dexscreener"],
+    "ai_model": "llama-3.3-70b-versatile (Groq)"
   },
   "dedup": {
     "tweet_dedupe_window_hours": 24,

@@ -1,11 +1,11 @@
-const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const GROQ_BASE = "https://api.groq.com/openai/v1";
 
 function getApiKey(): string {
-  return process.env.GOOGLE_AI_KEY || "";
+  return process.env.GROQ_API_KEY || "";
 }
 
 function getModel(): string {
-  return "gemini-2.0-flash";
+  return "llama-3.3-70b-versatile";
 }
 
 export interface NarrativeAnalysis {
@@ -42,11 +42,11 @@ export async function analyzeNarrative(
 ): Promise<NarrativeAnalysis> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.log("[Gemini] No API key, using fallback analysis");
+    console.log("[Groq] No API key, using fallback analysis");
     return fallbackAnalysis();
   }
 
-  console.log(`[Gemini] Using key: ${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)} (length: ${apiKey.length})`);
+  console.log(`[Groq] Using key: ${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}`);
 
   const tokenSummary = tokenData.slice(0, 20).map((t) => ({
     symbol: t.symbol,
@@ -65,34 +65,38 @@ ${JSON.stringify(tokenSummary, null, 2)}
 What are the top 5 trending narratives RIGHT NOW? Which themes have momentum?`;
 
   try {
-    const url = `${GEMINI_BASE}/models/${getModel()}:generateContent?key=${apiKey}`;
+    const url = `${GROQ_BASE}/chat/completions`;
     const resp = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ parts: [{ text: userMessage }] }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 600,
-          responseMimeType: "application/json",
-        },
+        model: getModel(),
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+        temperature: 0.4,
+        max_tokens: 600,
+        response_format: { type: "json_object" },
       }),
       signal: AbortSignal.timeout(20000),
     });
 
     if (!resp.ok) {
       const err = await resp.text();
-      console.error(`[Gemini] API error ${resp.status}:`, err);
+      console.error(`[Groq] API error ${resp.status}:`, err);
       return fallbackAnalysis();
     }
 
     const data = (await resp.json()) as {
-      candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
+      choices: Array<{ message: { content: string } }>;
     };
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    console.log(`[Gemini] Raw response: ${text.substring(0, 300)}`);
+    const text = data.choices?.[0]?.message?.content || "";
+    console.log(`[Groq] Raw response: ${text.substring(0, 300)}`);
 
     const parsed = JSON.parse(text) as NarrativeAnalysis;
 
@@ -103,13 +107,13 @@ What are the top 5 trending narratives RIGHT NOW? Which themes have momentum?`;
       raw_response: text,
     };
 
-    console.log(`[Gemini] Narratives: ${result.trending_narratives.join(", ")}`);
-    console.log(`[Gemini] Scores: ${JSON.stringify(result.theme_scores)}`);
-    console.log(`[Gemini] Reasoning: ${result.reasoning}`);
+    console.log(`[Groq] Narratives: ${result.trending_narratives.join(", ")}`);
+    console.log(`[Groq] Scores: ${JSON.stringify(result.theme_scores)}`);
+    console.log(`[Groq] Reasoning: ${result.reasoning}`);
 
     return result;
   } catch (err) {
-    console.error("[Gemini] narrative analysis failed:", err);
+    console.error("[Groq] narrative analysis failed:", err);
     return fallbackAnalysis();
   }
 }
@@ -118,6 +122,6 @@ function fallbackAnalysis(): NarrativeAnalysis {
   return {
     trending_narratives: ["AI agents", "PolitiFi", "Cat coins", "RWA tokenization", "DePIN"],
     theme_scores: { "AI agents": 75, "PolitiFi": 65, "Cat coins": 60, "RWA tokenization": 50, "DePIN": 45 },
-    reasoning: "Default analysis — live data unavailable.",
+    reasoning: "Default analysis — connect Groq API key for live narrative detection.",
   };
 }
