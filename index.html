@@ -48,7 +48,7 @@
                         COOKING
                     </h1>
                 </div>
-                <p class="text-neutral-400 text-sm font-medium tracking-wide uppercase px-1 opacity-70">Autonomous Solana Token Launch Agent</p>
+                <p class="text-neutral-400 text-sm font-medium tracking-wide uppercase px-1 opacity-70">Autonomous Robinhood Chain Token Sniper</p>
             </div>
             <div class="flex items-center gap-4">
                 <button onclick="scanNow()" id="btn-scan" class="glass px-5 py-2.5 rounded-2xl flex items-center gap-2 border-amber-500/20 hover:border-amber-500/40 transition-colors text-amber-400 hover:text-amber-300">
@@ -81,7 +81,7 @@
                         <span class="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Step 1</span>
                     </div>
                     <h3 class="text-base font-bold mb-1">Scan</h3>
-                    <p class="text-xs text-neutral-400 leading-relaxed">Fetches trending Solana tokens from Jupiter, Dexscreener, or Pump.fun every few minutes</p>
+                    <p class="text-xs text-neutral-400 leading-relaxed">Fetches trending tokens from Uniswap pools and Blockscout analytics on Robinhood Chain</p>
                 </div>
                 <div class="glass p-6 rounded-2xl border-purple-500/20 relative group glass-hover">
                     <div class="flex items-center gap-3 mb-3">
@@ -101,7 +101,7 @@
                         <span class="text-[10px] font-bold text-green-400 uppercase tracking-widest">Step 3</span>
                     </div>
                     <h3 class="text-base font-bold mb-1">Launch</h3>
-                    <p class="text-xs text-neutral-400 leading-relaxed">AI evaluates market conditions and proposes a launch. You approve, then it deploys via Pump.fun or Raydium</p>
+                    <p class="text-xs text-neutral-400 leading-relaxed">AI evaluates market conditions and proposes a launch. You approve, then it deploys via NOXA Fun with auto-locked liquidity</p>
                 </div>
                 <div class="glass p-6 rounded-2xl border-red-500/20 relative group glass-hover">
                     <div class="flex items-center gap-3 mb-3">
@@ -171,7 +171,7 @@
                     </div>
                 </div>
                 <div id="stat-thought" class="text-sm font-medium text-amber-100/80 italic line-clamp-3 leading-relaxed">
-                    "Engine initializing... connecting to Solana RPC."
+                    "Engine initializing... connecting to Robinhood Chain RPC."
                 </div>
             </div>
         </div>
@@ -230,13 +230,13 @@
                         </div>
                         <div>
                             <h3 class="text-base font-bold">Signal Detection</h3>
-                            <p class="text-xs text-neutral-400 mt-0.5">Multi-source Solana token scanning</p>
+                            <p class="text-xs text-neutral-400 mt-0.5">Multi-source Robinhood Chain token scanning</p>
                         </div>
                     </div>
                     <div class="text-xs text-neutral-300 space-y-2.5 pl-16">
-                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Jupiter API</strong> — Solana DEX aggregator trending tokens with volume, price change, and pool data</span></div>
-                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Dexscreener</strong> — Multi-chain DEX analytics filtered for Solana pairs</span></div>
-                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Pump.fun</strong> — New memecoin launches on the Pump.fun launchpad</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Uniswap V3/V4</strong> — Top pools by volume, price data, liquidity depth on Robinhood Chain</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Blockscout</strong> — On-chain analytics, token safety, holder data, contract verification</span></div>
+                        <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>NOXA Fun</strong> — New token launches on the Robinhood Chain launchpad</span></div>
                         <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Helius DAS</strong> — On-chain safety checks (mint authority, freeze authority, honeypot detection)</span></div>
                         <div class="flex items-start gap-2"><span class="text-amber-400 mt-0.5 shrink-0">&#9679;</span><span>Runs every 5 minutes (configurable), processes 50+ tokens per cycle</span></div>
                     </div>
@@ -282,8 +282,8 @@
                         <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Condition Evaluation</strong> — Rule-based scoring analyzes signal strength, market heat, recent launches</span></div>
                         <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Confidence Score</strong> — Produces 0-100% confidence. Must hit 75%+ to propose a launch</span></div>
                         <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Approval Gate</strong> — You approve via API or Telegram before any token is deployed</span></div>
-                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Pump.fun</strong> — Fast deployment, no LP setup needed, lowest cost (~0.01 SOL)</span></div>
-                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Raydium</strong> — Custom SPL token + liquidity pool, more control (~5 SOL)</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>NOXA Fun</strong> — Deploy ERC-20 + locked Uniswap LP in one transaction, rug-proof from day one (~0.01 ETH)</span></div>
+                        <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Uniswap V3</strong> — Custom pool creation with full control over fee tiers and liquidity ranges</span></div>
                         <div class="flex items-start gap-2"><span class="text-green-400 mt-0.5 shrink-0">&#9679;</span><span><strong>Dedicated Wallet</strong> — Hot wallet funded by you, AI signs transactions</span></div>
                     </div>
                 </div>
