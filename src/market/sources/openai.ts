@@ -5,7 +5,7 @@ function getApiKey(): string {
 }
 
 function getModel(): string {
-  return "llama-3.3-70b-versatile";
+  return "qwen/qwen3.8-27b";
 }
 
 export interface NarrativeAnalysis {
