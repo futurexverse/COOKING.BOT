@@ -897,7 +897,7 @@
                                 <div>Platform: <strong class="text-neutral-200">${l.platform}</strong></div>
                                 <div>Mint: <strong class="text-neutral-200 mono">${l.mint}</strong></div>
                                 <div>TX: <strong class="text-neutral-200 mono">${l.tx_signature ? l.tx_signature.substring(0, 20) + '...' : '—'}</strong></div>
-                                <div>Cost: <strong class="text-neutral-200">${l.cost_sol ? l.cost_sol.toFixed(4) + ' SOL' : '—'}</strong></div>
+                                <div>Cost: <strong class="text-neutral-200">${l.cost_eth ? l.cost_eth.toFixed(4) + ' ETH' : '—'}</strong></div>
                                 <div>Guardian: <strong class="${l.guardian_active ? 'text-green-400' : 'text-neutral-500'}">${l.guardian_active ? 'Active' : 'Inactive'}</strong></div>
                             </div>
                         </div>
@@ -1016,7 +1016,7 @@
                                 <span class="text-[10px] font-bold text-green-400 mono">${timeAgo(l.launched_at)}</span>
                             </div>
                             <div class="text-[10px] text-neutral-500 mt-1">${l.platform} &middot; ${l.mint.substring(0, 12)}...</div>
-                            ${l.cost_sol ? `<div class="text-[10px] text-neutral-500 mt-1">Cost: ${l.cost_sol.toFixed(4)} SOL</div>` : ''}
+                            ${l.cost_eth ? `<div class="text-[10px] text-neutral-500 mt-1">Cost: ${l.cost_eth.toFixed(4)} ETH</div>` : ''}
                         `;
                         launchContainer.appendChild(div);
                     });

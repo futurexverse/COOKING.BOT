@@ -291,10 +291,10 @@ function handleProposals(): string {
     const conf = ((prop.confidence as number) || 0) * 100;
     const symbol = (prop.symbol as string) || (signal.symbol as string) || "?";
     const platform = (prop.platform as string) || "pumpfun";
-    const cost = (prop.estimated_cost_sol as number) || 0.01;
+    const cost = (prop.estimated_cost_eth as number) || 0.01;
     lines.push(
       `<b>$${symbol}</b> - ${conf.toFixed(0)}% confidence`,
-      `Platform: ${platform} | Cost: ${cost} SOL`,
+      `Platform: ${platform} | Cost: ${cost} ETH`,
       `ID: <code>${p.decision_id}</code>`,
       ``
     );
@@ -585,7 +585,7 @@ export async function sendProposalToTelegram(proposal: {
   symbol: string;
   confidence: number;
   platform: string;
-  estimated_cost_sol: number;
+  estimated_cost_eth: number;
   reasoning: string;
 }): Promise<void> {
   if (!getBotToken()) return;
@@ -599,7 +599,7 @@ export async function sendProposalToTelegram(proposal: {
     ``,
     `Confidence: <b>${confPct}%</b>`,
     `Platform: ${proposal.platform}`,
-    `Cost: ${proposal.estimated_cost_sol} SOL`,
+    `Cost: ${proposal.estimated_cost_eth} ETH`,
     ``,
     `<i>${proposal.reasoning}</i>`,
     ``,

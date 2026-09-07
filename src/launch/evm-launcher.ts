@@ -86,7 +86,7 @@ export async function executeEvmLaunch(
       mint: result.token_address,
       platform: "noxafun",
       tx_signature: result.tx_hash || "",
-      cost_sol: proposal.estimated_cost_sol,
+      cost_eth: proposal.estimated_cost_eth,
       launched_at: Date.now(),
       guardian_active: true,
       initial_price: 0,

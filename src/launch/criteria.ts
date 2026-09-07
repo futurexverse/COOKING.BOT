@@ -18,7 +18,7 @@ function calculateConfidence(
   confidence: number;
   platform: "pumpfun" | "raydium" | "noxafun" | "uniswap";
   reasoning: string;
-  estimated_cost_sol: number;
+  estimated_cost_eth: number;
   should_launch: boolean;
 } {
   if (!signal) {
@@ -26,7 +26,7 @@ function calculateConfidence(
       confidence: 0,
       platform: "pumpfun",
       reasoning: "No signal data provided",
-      estimated_cost_sol: 0.01,
+      estimated_cost_eth: 0.01,
       should_launch: false,
     };
   }
@@ -111,7 +111,7 @@ function calculateConfidence(
     confidence,
     platform,
     reasoning: reasons.join("; "),
-    estimated_cost_sol: estimatedCost,
+    estimated_cost_eth: estimatedCost,
     should_launch: confidence >= minConfidence,
   };
 }
@@ -132,7 +132,7 @@ export async function evaluateLaunchConditions(
       platform: "noxafun",
       confidence: 0,
       reasoning: "Skipped — already has a pending proposal",
-      estimated_cost_sol: 0.01,
+      estimated_cost_eth: 0.01,
       signal,
       created_at: Date.now(),
       status: "rejected",
@@ -148,7 +148,7 @@ export async function evaluateLaunchConditions(
       platform: "noxafun",
       confidence: 0,
       reasoning: "Skipped — on 1-hour cooldown after recent proposal",
-      estimated_cost_sol: 0.01,
+      estimated_cost_eth: 0.01,
       signal,
       created_at: Date.now(),
       status: "rejected",
@@ -164,7 +164,7 @@ export async function evaluateLaunchConditions(
     platform: analysis.platform,
     confidence: analysis.confidence,
     reasoning: analysis.reasoning,
-    estimated_cost_sol: analysis.estimated_cost_sol,
+    estimated_cost_eth: analysis.estimated_cost_eth,
     signal: signal || {
       symbol: "UNKNOWN",
       score: 0,
@@ -185,7 +185,7 @@ export async function evaluateLaunchConditions(
       symbol: proposal.symbol,
       confidence: proposal.confidence,
       platform: proposal.platform,
-      estimated_cost_sol: proposal.estimated_cost_sol,
+      estimated_cost_eth: proposal.estimated_cost_eth,
       reasoning: proposal.reasoning,
     }).catch(() => {});
   }
