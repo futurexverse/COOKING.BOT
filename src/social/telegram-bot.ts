@@ -142,29 +142,31 @@ async function getBotInfo(): Promise<{ id: number; username: string } | null> {
 }
 
 const QA: Record<string, string> = {
-  greet: `<b>Hey! Welcome to COOKING.</b>\n\nI'm your autonomous Solana token launch agent. I scan the market, score tokens, propose launches, and guard your positions after deployment - all on autopilot.\n\n<b>Ask me anything:</b>\n\n/scoring - How the scoring algorithm works\n/launch - How token launching works\n/guardian - Post-launch monitoring\n/costs - What it costs\n/heat - Market heat explained\n/config - Current thresholds\n/proposals - View pending launches\n/status - System status\n/help - All commands\n\nJust type a question like "how does scoring work" or "what does the guardian do" and I'll answer it.`,
+  greet: `<b>Hey! Welcome to COOKING.</b>\n\nI'm your autonomous Robinhood Chain token sniper. I scan Uniswap pools, score tokens with AI, propose launches, and guard your positions after deployment — all on autopilot.\n\n<b>Ask me anything:</b>\n\n/scoring - How the scoring algorithm works\n/launch - How token launching works\n/guardian - Post-launch monitoring\n/narrative - AI narrative detection\n/costs - What it costs\n/heat - Market heat explained\n/config - Current thresholds\n/proposals - View pending launches\n/status - System status\n/help - All commands\n\nJust type a question like "how does scoring work" or "what does the guardian do" and I'll answer it.`,
 
   group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/help - All commands\n\nYou'll receive proposals with Approve/Reject buttons when the engine finds a strong signal.`,
 
-  what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Solana token launch agent. It scans the market, scores tokens, proposes launches, and guards your positions after deployment - all on autopilot.`,
+  what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Robinhood Chain token sniper. It scans Uniswap pools, scores every token with a 6-factor algorithm + AI narrative detection, proposes launches when conditions are right, and monitors your positions 24/7 for rugs and price moves.`,
 
-  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Jupiter, Dexscreener, and Pump.fun\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety\n3. <b>Launch</b> - AI proposes a launch when conditions are right. You approve, it deploys\n4. <b>Guard</b> - Monitors your token for rugs, price moves, stop-loss, take profit`,
+  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Uniswap pools and Blockscout analytics\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via NOXA Fun with locked liquidity\n4. <b>Guard</b> - Monitors your token 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
 
-  score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm to rate every token it finds. Each factor is scored 0-100, then weighted and combined into a final score.\n\n<b>The 6 Factors:</b>\n\n1. Volume Spike (25% weight)\nMeasures volume-to-liquidity ratio. A sudden spike means traders are piling in. Higher ratio = higher score.\n\n2. Liquidity Depth (20% weight)\nChecks if there's enough liquidity to actually trade. Minimum $10K required. Deeper liquidity = safer entry.\n\n3. 24-Hour Momentum (20% weight)\nLooks at price trend over the last 24 hours. Strong upward momentum scores high. Flat or dropping = low.\n\n4. 1-Hour Momentum (15% weight)\nShort-term action. Are buyers stepping in right now? Captures early entries before the 24h trend fully develops.\n\n5. Holder Growth (10% weight)\nNumber of unique holders and how fast they're growing. More holders = more distributed = healthier token.\n\n6. Safety Score (10% weight)\nOn-chain risk factors: freeze authority, mint authority, locked liquidity, contract verification. Lower risk = higher score.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable (system proposes a launch)\n- 45-69% = Watchlist (monitored, not launched)\n- Below 45% = Noise (ignored)\n\nThe system only proposes launches when the score hits 70%+ AND market heat AND confidence all align.`,
+  score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection to rate every token on Robinhood Chain.\n\n<b>The 6 Factors:</b>\n\n1. Volume Spike (25% weight)\nMeasures volume-to-liquidity ratio. A sudden spike means traders are piling in.\n\n2. Liquidity Depth (20% weight)\nChecks if there's enough liquidity on Uniswap to actually trade. Minimum $10K required.\n\n3. 24-Hour Momentum (20% weight)\nPrice trend over the last 24 hours. Strong upward momentum scores high.\n\n4. 1-Hour Momentum (15% weight)\nShort-term action. Are buyers stepping in right now?\n\n5. Holder Growth (10% weight)\nNumber of unique holders and distribution. More holders = healthier token.\n\n6. Safety Score (10% weight)\nContract verification, owner renounced, top holder concentration.\n\n<b>Narrative Boost</b>\nGoogle Gemini AI analyzes trending themes on Robinhood Chain (AI agents, tokenized stocks, memes, DePIN). Tokens matching hot narratives get up to +15% score boost.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable (proposes a launch)\n- 45-69% = Watchlist (monitored)\n- Below 45% = Noise (ignored)`,
 
-  launch: `<b>Token Launching</b>\n\nWhen a token scores 70%+ and conditions are right:\n- AI evaluates market heat and confidence\n- Must hit 75%+ confidence to propose\n- You approve via Telegram or API\n- Deploys via Pump.fun (~0.01 SOL) or Raydium (~5 SOL)`,
+  launch: `<b>Token Launching</b>\n\nWhen a token scores 70%+ and conditions are right:\n- AI evaluates market heat, confidence, and narrative alignment\n- Must hit 75%+ confidence to propose\n- You approve via Telegram buttons\n- Deploys via NOXA Fun (~0.01 ETH)\n- Liquidity is auto-locked — rug-proof from day one`,
 
-  guardian: `<b>Guardian System</b>\n\nPost-launch monitoring:\n- Rug detection (freeze/mint authority, liquidity pulls)\n- Price alerts (20%+ surges or dumps)\n- Holder milestones (100, 500, 1K, 5K, 10K)\n- Stop-loss (-30%) and take-profit (+100%)\n- Auto-sell on triggers\n- Telegram alerts in real-time`,
+  guardian: `<b>Guardian System</b>\n\nPost-launch monitoring on Robinhood Chain:\n- Rug detection (contract owner, mint authority, supply concentration)\n- Price alerts (20%+ surges or dumps)\n- Holder milestones (100, 500, 1K, 5K, 10K)\n- Stop-loss (-30%) and take-profit (+100%)\n- Contract safety checks via Blockscout\n- Telegram alerts in real-time`,
 
-  cost: `<b>Costs</b>\n\n- Pump.fun launch: ~0.01 SOL\n- Raydium launch: ~5 SOL\n- Guardian monitoring: free\n- No platform fees - you only pay Solana network costs`,
+  narrative: `<b>AI Narrative Detection</b>\n\nCOOKING uses Google Gemini AI to identify trending themes on Robinhood Chain:\n\n- Scans new token launches on NOXA Fun for common themes\n- Analyzes social data from LunarCrush for rising narratives\n- Detects meme trends, sector rotations, and hype cycles\n\nTokens matching hot narratives get a score boost (up to +15%), making them more likely to be proposed for launch.\n\nExamples: AI agents, tokenized stocks, political memes, DePIN, gaming tokens.\n\nNarratives refresh every 5 minutes automatically.`,
+
+  cost: `<b>Costs</b>\n\n- NOXA Fun launch: ~0.01 ETH (gas only)\n- Guardian monitoring: free\n- Narrative detection: free (Google Gemini free tier)\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
 
   approve: `<b>Approving a Launch</b>\n\nWhen a new proposal comes in:\n- Tap the Approve or Reject button\n- Or send /approve &lt;decision_id&gt;\n- Or use the API: POST /api/approve/&lt;id&gt;\n- Approval window: 5 minutes`,
 
-  heat: `<b>Market Heat</b>\n\nA gauge of overall market activity based on:\n- Number of candidate tokens found\n- Top scores among candidates\n- Scale: Cold (0-20%) -> Cool -> Warm -> Hot (70%+)\n\nHigher heat = more opportunity`,
+  heat: `<b>Market Heat</b>\n\nA gauge of overall market activity on Robinhood Chain:\n- Number of candidate tokens found on Uniswap\n- Top scores among candidates\n- Scale: Cold (0-20%) -> Cool -> Warm -> Hot (70%+)\n\nHigher heat = more opportunity`,
 
-  chain: `<b>Supported Chains</b>\n\n- Solana mainnet only\n- Jupiter DEX aggregation\n- Dexscreener analytics\n- Pump.fun memecoin launches\n- Raydium liquidity pools`,
+  chain: `<b>Robinhood Chain</b>\n\n- Ethereum L2 built on Arbitrum\n- ~100ms block times, sub-cent gas fees\n- Uniswap V2/V3/V4 for trading\n- NOXA Fun for token launches with locked LP\n- Blockscout for analytics and safety\n- Chain ID 4663`,
 
-  help: `<b>COOKING Commands</b>\n\n/start - Welcome message\n/status - System status\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/config - Current thresholds\n/costs - Launch costs\n/heat - Market heat explained\n/help - This message`,
+  help: `<b>COOKING Commands</b>\n\n/start - Welcome message\n/status - System status\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/narrative - AI narrative detection\n/config - Current thresholds\n/costs - Launch costs\n/heat - Market heat explained\n/help - This message`,
 };
 
 async function matchQuestion(text: string): Promise<string | null> {
@@ -176,6 +178,7 @@ async function matchQuestion(text: string): Promise<string | null> {
   if (lower === "/scoring") return QA.score;
   if (lower === "/launch") return QA.launch;
   if (lower === "/guardian") return QA.guardian;
+  if (lower === "/narrative") return QA.narrative;
   if (lower === "/config") return handleConfig();
   if (lower === "/costs" || lower === "/cost") return QA.cost;
   if (lower === "/heat") return QA.heat;
@@ -194,6 +197,9 @@ async function matchQuestion(text: string): Promise<string | null> {
 
   if (lower.includes("score") || lower.includes("scoring") || lower.includes("algorithm") || lower.includes("factor") || lower.includes("weighted") || lower.includes("rating") || lower.includes("decide") || lower.includes("determine") || lower.includes("how does it decide"))
     return QA.score;
+
+  if (lower.includes("narrative") || lower.includes("theme") || lower.includes("trend") || lower.includes("gemini") || lower.includes("ai detect") || lower.includes("what's trending"))
+    return QA.narrative;
 
   if (lower.includes("guard") || lower.includes("monitor") || lower.includes("rug") || lower.includes("scam") || lower.includes("protect") || lower.includes("stop loss") || lower.includes("take profit") || lower.includes("alert"))
     return QA.guardian;
@@ -279,7 +285,9 @@ function handleConfig(): string {
     `Watchlist Gate: 45%+`,
     `Launch Confidence: 75%+`,
     `Strategy: cooking_v1`,
-    `Scan Interval: 5 min`,
+    `Chain: Robinhood (4663)`,
+    `DEX: Uniswap`,
+    `Launch: NOXA Fun`,
     `Guardian: Active`,
   ].join("\n");
 }
@@ -306,12 +314,12 @@ const QUESTION_BUTTONS: Array<Array<{ text: string; callback_data: string }>> = 
   [{ text: "What is COOKING?", callback_data: "q:what" }],
   [{ text: "How does it work?", callback_data: "q:how" }],
   [{ text: "How does scoring work?", callback_data: "q:score" }],
+  [{ text: "AI Narrative Detection", callback_data: "q:narrative" }],
   [{ text: "How does launching work?", callback_data: "q:launch" }],
   [{ text: "What is the guardian?", callback_data: "q:guardian" }],
   [{ text: "What does it cost?", callback_data: "q:cost" }],
   [{ text: "Market heat explained", callback_data: "q:heat" }],
-  [{ text: "How to approve/reject?", callback_data: "q:approve" }],
-  [{ text: "Supported chains", callback_data: "q:chain" }],
+  [{ text: "Robinhood Chain", callback_data: "q:chain" }],
   [{ text: "System status", callback_data: "q:status" }],
 ];
 
@@ -388,11 +396,11 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
       what: QA.what,
       how: QA.how,
       score: QA.score,
+      narrative: QA.narrative,
       launch: QA.launch,
       guardian: QA.guardian,
       cost: QA.cost,
       heat: QA.heat,
-      approve: QA.approve,
       chain: QA.chain,
       status: handleStatus(),
     };
