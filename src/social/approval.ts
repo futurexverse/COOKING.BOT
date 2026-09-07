@@ -1,14 +1,13 @@
 import type { ApprovalRequest } from "../schemas/index.js";
 
-const pendingApprovals = new Map<
-  string,
-  {
-    decision_id: string;
-    proposal: unknown;
-    created_at: number;
-    status: "pending" | "approved" | "rejected";
-  }
->();
+interface PendingEntry {
+  decision_id: string;
+  proposal: unknown;
+  created_at: number;
+  status: "pending" | "approved" | "rejected";
+}
+
+const pendingApprovals = new Map<string, PendingEntry>();
 
 export function registerProposal(
   decisionId: string,
@@ -73,4 +72,8 @@ export function getPendingProposals(): Array<{
   status: "pending" | "approved" | "rejected";
 }> {
   return Array.from(pendingApprovals.values());
+}
+
+export function getProposalById(decisionId: string): PendingEntry | undefined {
+  return pendingApprovals.get(decisionId);
 }

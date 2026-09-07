@@ -419,6 +419,25 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
     if (chatId && messageId) {
       await editMessageReplyMarkup(chatId, messageId, []);
       await sendMessage(chatId, `<b>Launch Approved</b>\nID: <code>${decisionId}</code>\n${result.message}`);
+
+      if (result.success) {
+        try {
+          const { getProposalById } = await import("./approval.js");
+          const { executeLaunch } = await import("../launch/launcher.js");
+          const entry = getProposalById(decisionId);
+          if (entry && entry.proposal) {
+            const proposal = entry.proposal as { status: string; [key: string]: unknown };
+            proposal.status = "approved";
+            await sendMessage(chatId, `<b>Executing launch...</b>`);
+            const record = await executeLaunch(proposal as any);
+            await sendMessage(chatId, `<b>Launch Complete!</b>\n$${record.symbol} deployed\nMint: <code>${record.mint}</code>\nPlatform: ${record.platform}\nTx: <code>${record.tx_signature}</code>`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error("[Telegram] Launch execution failed:", msg);
+          await sendMessage(chatId, `<b>Launch Failed</b>\n${msg}`);
+        }
+      }
     }
   } else if (data.startsWith("reject:")) {
     const decisionId = data.split(":")[1];

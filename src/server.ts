@@ -69,9 +69,25 @@ app.post("/api/approve/:id", async (request, reply) => {
     ...(request.body as Record<string, unknown>),
     decision_id: id,
   });
-  const { processApproval } = await import("./social/approval.js");
+  const { processApproval, getProposalById } = await import("./social/approval.js");
   const result = await processApproval(body);
-  return reply.code(200).send(result);
+
+  let launchResult: unknown = null;
+  if (result.success && body.approved) {
+    try {
+      const { executeLaunch } = await import("./launch/launcher.js");
+      const entry = getProposalById(id);
+      if (entry && entry.proposal) {
+        const proposal = entry.proposal as { status: string; [key: string]: unknown };
+        proposal.status = "approved";
+        launchResult = await executeLaunch(proposal as any);
+      }
+    } catch (err) {
+      launchResult = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  return reply.code(200).send({ ...result, launch: launchResult });
 });
 
 app.post("/api/launch/execute", async (request, reply) => {
