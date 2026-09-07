@@ -609,6 +609,7 @@
                         <div class="flex items-center gap-3">
                             <span class="text-sm font-extrabold text-white uppercase">$${token.symbol || '?'}</span>
                             ${token.name ? `<span class="text-[10px] text-neutral-500">${token.name}</span>` : ''}
+                            ${token.chain ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/10 text-purple-400 uppercase">${token.chain}</span>` : ''}
                             ${token.source ? `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-white/5 text-neutral-400 uppercase">${token.source}</span>` : ''}
                         </div>
                         <div class="text-right">
@@ -669,8 +670,9 @@
                     </div>
                     <p class="text-[11px] text-neutral-300 mb-2 italic">${proposal.reasoning || 'No reasoning provided'}</p>
                     <div class="flex items-center gap-4 text-[10px] text-neutral-400">
-                        <span>Platform: <strong class="text-neutral-200">${proposal.platform || 'pumpfun'}</strong></span>
-                        <span>Cost: <strong class="text-neutral-200">${proposal.estimated_cost_sol || 0.01} SOL</strong></span>
+                        <span>Platform: <strong class="text-neutral-200">${proposal.platform || 'noxafun'}</strong></span>
+                        <span>Cost: <strong class="text-neutral-200">~${proposal.estimated_cost_sol || 0.01} ETH</strong></span>
+                        ${signal.chain ? `<span>Chain: <strong class="text-purple-400">${signal.chain}</strong></span>` : ''}
                     </div>
                     ${p.status === 'pending' ? `
                     <div class="flex gap-2 mt-3">

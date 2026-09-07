@@ -1,9 +1,5 @@
 import type { TokenCandidate } from "../../schemas/index.js";
 
-function getBlockscoutApi(): string {
-  return "https://robinhoodchain.blockscout.com";
-}
-
 interface DexscreenerPair {
   chainId: string;
   dexId: string;
@@ -26,15 +22,24 @@ interface DexscreenerBoost {
   totalAmount?: number;
 }
 
-interface DexscreenerResponse {
-  value: DexscreenerPair[];
-  Count: number;
-}
+const CHAIN_NAMES: Record<string, string> = {
+  solana: "Solana",
+  ethereum: "Ethereum",
+  base: "Base",
+  bsc: "BSC",
+  arbitrum: "Arbitrum",
+  polygon: "Polygon",
+  avalanche: "Avalanche",
+  optimism: "Optimism",
+  tron: "Tron",
+  sui: "Sui",
+  aptos: "Aptos",
+};
 
-interface DexscreenerBoostResponse {
-  value: DexscreenerBoost[];
-  Count: number;
-}
+const SUPPORTED_CHAINS = new Set([
+  "solana", "ethereum", "base", "bsc", "arbitrum",
+  "polygon", "avalanche", "optimism", "tron", "sui", "aptos",
+]);
 
 export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]> {
   try {
@@ -44,121 +49,87 @@ export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]
     );
 
     if (!boostResp.ok) throw new Error(`Dexscreener boosts ${boostResp.status}`);
-    const boostData = (await boostResp.json()) as DexscreenerBoostResponse;
-    const boosts = boostData.value || boostData as unknown as DexscreenerBoost[];
+    const boostData = await boostResp.json() as DexscreenerBoost[] | { value: DexscreenerBoost[] };
+    const boosts: DexscreenerBoost[] = Array.isArray(boostData) ? boostData : (boostData as { value: DexscreenerBoost[] }).value || [];
 
-    const rhBoosts = boosts
-      .filter((t) => t.chainId === "robinhood")
-      .slice(0, limit);
+    const trending = boosts
+      .filter((t) => SUPPORTED_CHAINS.has(t.chainId))
+      .slice(0, 50);
 
-    if (rhBoosts.length === 0) {
-      console.log("[Uniswap/Dexscreener] No Robinhood tokens in boost list, using Blockscout fallback");
-      return fetchFromBlockscout(limit);
+    if (trending.length === 0) {
+      console.log("[Dexscreener] No trending tokens from supported chains");
+      return [];
     }
 
-    const tokenAddresses = rhBoosts.map((t) => t.tokenAddress).join(",");
-    const detailResp = await fetch(
-      `https://api.dexscreener.com/tokens/v1/robinhood/${tokenAddresses}`,
-      { signal: AbortSignal.timeout(15000) }
-    );
-
-    if (!detailResp.ok) {
-      console.log(`[Uniswap/Dexscreener] Detail fetch failed ${detailResp.status}, using Blockscout fallback`);
-      return fetchFromBlockscout(limit);
+    const grouped = new Map<string, string[]>();
+    for (const t of trending) {
+      if (!grouped.has(t.chainId)) grouped.set(t.chainId, []);
+      grouped.get(t.chainId)!.push(t.tokenAddress);
     }
 
-    const detailData = (await detailResp.json()) as DexscreenerResponse | DexscreenerPair[];
-    const pairs: DexscreenerPair[] = Array.isArray(detailData)
-      ? detailData
-      : (detailData as DexscreenerResponse).value || [];
+    const results: TokenCandidate[] = [];
 
-    const bestByVolume = new Map<string, DexscreenerPair>();
-    for (const pair of pairs) {
-      if (pair.chainId !== "robinhood") continue;
-      const addr = pair.baseToken.address.toLowerCase();
-      const existing = bestByVolume.get(addr);
-      if (!existing || (pair.volume?.h24 || 0) > (existing.volume?.h24 || 0)) {
-        bestByVolume.set(addr, pair);
+    for (const [chainId, addresses] of grouped) {
+      try {
+        const addrStr = addresses.slice(0, 20).join(",");
+        const detailResp = await fetch(
+          `https://api.dexscreener.com/tokens/v1/${chainId}/${addrStr}`,
+          { signal: AbortSignal.timeout(15000) }
+        );
+
+        if (!detailResp.ok) continue;
+        const detailData = await detailResp.json() as DexscreenerPair[] | { value: DexscreenerPair[] };
+        const pairs: DexscreenerPair[] = Array.isArray(detailData) ? detailData : (detailData as { value: DexscreenerPair[] }).value || [];
+
+        const bestByVolume = new Map<string, DexscreenerPair>();
+        for (const pair of pairs) {
+          if (pair.chainId !== chainId) continue;
+          const addr = pair.baseToken.address.toLowerCase();
+          const existing = bestByVolume.get(addr);
+          if (!existing || (pair.volume?.h24 || 0) > (existing.volume?.h24 || 0)) {
+            bestByVolume.set(addr, pair);
+          }
+        }
+
+        for (const pair of bestByVolume.values()) {
+          const vol = pair.volume?.h24 || 0;
+          const liq = pair.liquidity?.usd || 0;
+          if (vol < 10000 || liq < 5000) continue;
+
+          results.push({
+            symbol: pair.baseToken.symbol?.toUpperCase() || "?",
+            name: pair.baseToken.name || "Unknown",
+            mint: pair.baseToken.address,
+            chain: chainId,
+            change_24h: pair.priceChange?.h24 || 0,
+            change_1h: pair.priceChange?.h1 || 0,
+            volume_24h: vol,
+            liquidity: liq,
+            holders: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
+            market_cap: pair.marketCap || pair.fdv || 0,
+            price: parseFloat(pair.priceUsd) || 0,
+            source: "dexscreener" as const,
+          });
+        }
+      } catch (err) {
+        console.error(`[Dexscreener] Failed to fetch ${chainId} tokens:`, err);
       }
     }
 
-    if (bestByVolume.size === 0) {
-      console.log("[Uniswap/Dexscreener] No Robinhood pairs in detail response, using Blockscout fallback");
-      return fetchFromBlockscout(limit);
+    results.sort((a, b) => b.volume_24h - a.volume_24h);
+    const sliced = results.slice(0, limit);
+
+    console.log(`[Dexscreener] Got ${sliced.length} trending tokens across ${grouped.size} chains`);
+    for (const [chainId] of grouped) {
+      const chainTokens = sliced.filter((t) => t.chain === chainId);
+      if (chainTokens.length > 0) {
+        console.log(`  ${CHAIN_NAMES[chainId] || chainId}: ${chainTokens.length} tokens (top: $${chainTokens[0].symbol}, $${(chainTokens[0].volume_24h / 1e6).toFixed(1)}M vol)`);
+      }
     }
 
-    const result = Array.from(bestByVolume.values())
-      .sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0))
-      .slice(0, limit)
-      .map((pair) => ({
-        symbol: pair.baseToken.symbol?.toUpperCase() || "?",
-        name: pair.baseToken.name || "Unknown",
-        mint: pair.baseToken.address,
-        change_24h: pair.priceChange?.h24 || 0,
-        change_1h: pair.priceChange?.h1 || 0,
-        volume_24h: pair.volume?.h24 || 0,
-        liquidity: pair.liquidity?.usd || 0,
-        holders: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
-        market_cap: pair.marketCap || pair.fdv || 0,
-        price: parseFloat(pair.priceUsd) || 0,
-        source: "uniswap" as const,
-      }));
-
-    console.log(`[Uniswap/Dexscreener] Got ${result.length} Robinhood tokens from Dexscreener`);
-    return result;
+    return sliced;
   } catch (err) {
-    console.error("[Uniswap/Dexscreener] fetch failed, trying Blockscout:", err);
-    return fetchFromBlockscout(limit);
-  }
-}
-
-async function fetchFromBlockscout(limit = 20): Promise<TokenCandidate[]> {
-  try {
-    const base = getBlockscoutApi();
-    const resp = await fetch(
-      `${base}/api/v2/tokens?items_count=${limit}`,
-      { signal: AbortSignal.timeout(12000) }
-    );
-
-    if (!resp.ok) throw new Error(`Blockscout ${resp.status}`);
-    const data = (await resp.json()) as {
-      items: Array<{
-        address_hash: string;
-        symbol: string;
-        name: string;
-        decimals: string;
-        total_supply: string;
-        holders_count: string;
-        exchange_rate: string;
-        volume_24h: string;
-        circulating_market_cap: string;
-      }>;
-    };
-
-    const result = (data.items || [])
-      .filter((t) => {
-        const vol = parseFloat(t.volume_24h) || 0;
-        const mcap = parseFloat(t.circulating_market_cap) || 0;
-        return vol > 50000 && mcap > 10000;
-      })
-      .map((token) => ({
-        symbol: token.symbol?.toUpperCase() || "?",
-        name: token.name || "Unknown",
-        mint: token.address_hash,
-        change_24h: 0,
-        change_1h: 0,
-        volume_24h: parseFloat(token.volume_24h) || 0,
-        liquidity: (parseFloat(token.circulating_market_cap) || 0) * 0.1,
-        holders: parseInt(token.holders_count) || 0,
-        market_cap: parseFloat(token.circulating_market_cap) || 0,
-        price: parseFloat(token.exchange_rate) || 0,
-        source: "blockscout" as const,
-      }));
-
-    console.log(`[Blockscout] Got ${result.length} tokens from Blockscout explorer`);
-    return result;
-  } catch (err) {
-    console.error("[Blockscout] fetch tokens failed:", err);
+    console.error("[Dexscreener] fetch failed:", err);
     return [];
   }
 }
@@ -172,15 +143,14 @@ export async function fetchTokenDataFromBlockscout(
   decimals: number;
 } | null> {
   try {
-    const base = getBlockscoutApi();
-
+    const base = "https://robinhoodchain.blockscout.com";
     const tokenResp = await fetch(
       `${base}/api/v2/tokens/${contractAddress}`,
       { signal: AbortSignal.timeout(8000) }
     );
 
     if (!tokenResp.ok) return null;
-    const tokenData = (await tokenResp.json()) as {
+    const tokenData = await tokenResp.json() as {
       holders_count: number;
       total_supply: string;
       decimals: string;
@@ -208,8 +178,8 @@ export async function getTokenPrice(
     );
 
     if (!resp.ok) return null;
-    const data = (await resp.json()) as DexscreenerResponse | DexscreenerPair[];
-    const pairs: DexscreenerPair[] = Array.isArray(data) ? data : (data as DexscreenerResponse).value || [];
+    const data = await resp.json() as DexscreenerPair[] | { value: DexscreenerPair[] };
+    const pairs: DexscreenerPair[] = Array.isArray(data) ? data : (data as { value: DexscreenerPair[] }).value || [];
     if (pairs.length === 0) return null;
     return parseFloat(pairs[0].priceUsd) || null;
   } catch {

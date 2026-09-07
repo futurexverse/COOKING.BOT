@@ -160,6 +160,7 @@ export function scoreToken(token: TokenCandidate): ScoredSignal {
     symbol: token.symbol,
     name: token.name,
     mint: token.mint,
+    chain: token.chain,
     score: clampedScore,
     signal_type,
     breakdown,

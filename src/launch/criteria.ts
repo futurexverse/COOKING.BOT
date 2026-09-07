@@ -92,8 +92,16 @@ function calculateConfidence(
 
   confidence = Math.max(0, Math.min(1, confidence));
 
-  const platform = signal.liquidity > 50000 ? "uniswap" : "noxafun";
-  const estimatedCost = platform === "noxafun" ? 0.01 : 0.05;
+  const platform = "noxafun";
+  const estimatedCost = 0.01;
+
+  const sourceChain = signal.chain || "unknown";
+  const chainName: Record<string, string> = {
+    solana: "Solana", ethereum: "Ethereum", base: "Base", bsc: "BSC",
+    arbitrum: "Arbitrum", polygon: "Polygon", avalanche: "Avalanche",
+    optimism: "Optimism", tron: "Tron", sui: "Sui", aptos: "Aptos",
+  };
+  reasons.unshift(`Trending on ${chainName[sourceChain] || sourceChain}`);
 
   const minConfidence = parseFloat(
     process.env.LAUNCH_MIN_CONFIDENCE || "0.75"
