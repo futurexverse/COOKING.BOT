@@ -38,29 +38,46 @@ interface BlockscoutPool {
 export async function fetchBlockscoutTrendingTokens(limit = 20): Promise<TokenCandidate[]> {
   try {
     const base = getBlockscoutApi();
-    const keyParam = getKeyParam();
 
     const resp = await fetch(
-      `${base}/api/v2/tokens?sort=volume_24h&order=desc&items_count=${limit}${keyParam}`,
+      `${base}/api/v2/tokens?items_count=${limit}`,
       { signal: AbortSignal.timeout(10000) }
     );
 
     if (!resp.ok) throw new Error(`Blockscout ${resp.status}`);
-    const data = (await resp.json()) as { items: BlockscoutToken[] };
+    const data = (await resp.json()) as {
+      items: Array<{
+        address_hash: string;
+        symbol: string;
+        name: string;
+        decimals: string;
+        total_supply: string;
+        holders_count: string;
+        exchange_rate: string;
+        volume_24h: string;
+        circulating_market_cap: string;
+      }>;
+    };
 
-    return (data.items || []).map((token) => ({
-      symbol: token.symbol?.toUpperCase() || "?",
-      name: token.name || "Unknown",
-      mint: token.address,
-      change_24h: Math.random() * 40 - 5,
-      change_1h: Math.random() * 20 - 5,
-      volume_24h: parseFloat(token.volume_24h) || 0,
-      liquidity: parseFloat(token.market_cap) * 0.1 || 0,
-      holders: token.holders_count || 0,
-      market_cap: parseFloat(token.market_cap) || 0,
-      price: parseFloat(token.exchange_rate) || 0,
-      source: "blockscout" as const,
-    }));
+    return (data.items || [])
+      .filter((token) => {
+        const vol = parseFloat(token.volume_24h) || 0;
+        const mcap = parseFloat(token.circulating_market_cap) || 0;
+        return vol > 0 && mcap > 10000;
+      })
+      .map((token) => ({
+        symbol: token.symbol?.toUpperCase() || "?",
+        name: token.name || "Unknown",
+        mint: token.address_hash,
+        change_24h: 0,
+        change_1h: 0,
+        volume_24h: parseFloat(token.volume_24h) || 0,
+        liquidity: (parseFloat(token.circulating_market_cap) || 0) * 0.1,
+        holders: parseInt(token.holders_count) || 0,
+        market_cap: parseFloat(token.circulating_market_cap) || 0,
+        price: parseFloat(token.exchange_rate) || 0,
+        source: "blockscout" as const,
+      }));
   } catch (err) {
     console.error("[Blockscout] fetch trending tokens failed:", err);
     return [];
