@@ -208,10 +208,14 @@ async function runScanAndPropose(): Promise<void> {
           market_heat: heat,
         });
 
-        console.log(`[Server] Proposal: $${proposal.symbol} | confidence=${(proposal.confidence * 100).toFixed(0)}% | status=${proposal.status}`);
+        if (proposal.decision_id === "skip" || proposal.decision_id === "cooldown") {
+          console.log(`[Server] Skipped $${proposal.symbol}: ${proposal.reasoning}`);
+        } else {
+          console.log(`[Server] Proposal: $${proposal.symbol} | confidence=${(proposal.confidence * 100).toFixed(0)}% | status=${proposal.status}`);
 
-        if (proposal.status === "pending") {
-          console.log(`[Server] Proposal sent to Telegram — awaiting approval (ID: ${proposal.decision_id})`);
+          if (proposal.status === "pending") {
+            console.log(`[Server] Proposal sent to Telegram — awaiting approval (ID: ${proposal.decision_id})`);
+          }
         }
       } catch (err) {
         console.error("[Server] Launch evaluation failed:", err);

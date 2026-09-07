@@ -4,3 +4,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "npm start"
+
+[[volumes]]
+mountPath = "/app/data"
+name = "cooking-data"

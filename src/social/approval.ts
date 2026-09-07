@@ -77,3 +77,28 @@ export function getPendingProposals(): Array<{
 export function getProposalById(decisionId: string): PendingEntry | undefined {
   return pendingApprovals.get(decisionId);
 }
+
+const COOLDOWN_MS = 60 * 60 * 1000;
+
+export function hasPendingProposalForSymbol(symbol: string): boolean {
+  for (const entry of pendingApprovals.values()) {
+    if (entry.status !== "pending") continue;
+    const prop = entry.proposal as Record<string, unknown> | undefined;
+    const sig = prop?.signal as Record<string, unknown> | undefined;
+    const propSymbol = (prop?.symbol as string) || (sig?.symbol as string) || "";
+    if (propSymbol.toUpperCase() === symbol.toUpperCase()) return true;
+  }
+  return false;
+}
+
+export function isSymbolOnCooldown(symbol: string): boolean {
+  for (const entry of pendingApprovals.values()) {
+    const prop = entry.proposal as Record<string, unknown> | undefined;
+    const sig = prop?.signal as Record<string, unknown> | undefined;
+    const propSymbol = (prop?.symbol as string) || (sig?.symbol as string) || "";
+    if (propSymbol.toUpperCase() === symbol.toUpperCase()) {
+      if (Date.now() - entry.created_at < COOLDOWN_MS) return true;
+    }
+  }
+  return false;
+}

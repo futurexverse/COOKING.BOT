@@ -124,24 +124,6 @@ export async function analyzeMarket(
     }
   }
 
-  for (const sig of scored) {
-    if (sig.mint && process.env.HELIUS_API_KEY) {
-      const safety = await fetchTokenSafety(sig.mint);
-      if (safety) {
-        sig.safety = {
-          has_freeze_authority: safety.has_freeze_authority,
-          has_mint_authority: safety.has_mint_authority,
-        };
-        if (
-          safety.has_freeze_authority &&
-          process.env.ORACLE_TOP5_REJECT_FREEZE_AUTHORITY !== "false"
-        ) {
-          sig.score *= 0.5;
-        }
-      }
-    }
-  }
-
   scored.sort((a, b) => b.score - a.score);
 
   lastScoredTokens = scored;

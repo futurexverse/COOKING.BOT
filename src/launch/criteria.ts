@@ -1,6 +1,6 @@
 import type { ScoredSignal, LaunchProposal } from "../schemas/index.js";
 import { randomUUID } from "crypto";
-import { registerProposal } from "../social/approval.js";
+import { registerProposal, hasPendingProposalForSymbol, isSymbolOnCooldown } from "../social/approval.js";
 import { sendProposalToTelegram } from "../social/telegram-bot.js";
 
 interface LaunchContext {
@@ -122,6 +122,38 @@ export async function evaluateLaunchConditions(
   const signal = context.signal;
   const marketHeat = context.market_heat || 0.5;
   const recentLaunches = context.recent_launches || 0;
+
+  if (signal && hasPendingProposalForSymbol(signal.symbol)) {
+    console.log(`[Criteria] Skipping $${signal.symbol} — already has pending proposal`);
+    return {
+      decision_id: "skip",
+      symbol: signal.symbol,
+      name: signal.name || "Unknown",
+      platform: "noxafun",
+      confidence: 0,
+      reasoning: "Skipped — already has a pending proposal",
+      estimated_cost_sol: 0.01,
+      signal,
+      created_at: Date.now(),
+      status: "rejected",
+    };
+  }
+
+  if (signal && isSymbolOnCooldown(signal.symbol)) {
+    console.log(`[Criteria] Skipping $${signal.symbol} — on 1hr cooldown`);
+    return {
+      decision_id: "cooldown",
+      symbol: signal.symbol,
+      name: signal.name || "Unknown",
+      platform: "noxafun",
+      confidence: 0,
+      reasoning: "Skipped — on 1-hour cooldown after recent proposal",
+      estimated_cost_sol: 0.01,
+      signal,
+      created_at: Date.now(),
+      status: "rejected",
+    };
+  }
 
   const analysis = calculateConfidence(signal, marketHeat, recentLaunches);
 
