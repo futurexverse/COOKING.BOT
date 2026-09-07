@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, "..", "..");
 const GROUP_IDS_FILE = join(ROOT_DIR, "data", "group_ids.json");
+const USER_IDS_FILE = join(ROOT_DIR, "data", "user_ids.json");
 
 let lastUpdateId = 0;
 let polling = false;
@@ -40,6 +41,30 @@ function saveGroupIds(ids: string[]): void {
   writeFileSync(GROUP_IDS_FILE, JSON.stringify(ids, null, 2));
 }
 
+function loadUserIds(): string[] {
+  try {
+    if (existsSync(USER_IDS_FILE)) {
+      return JSON.parse(readFileSync(USER_IDS_FILE, "utf-8"));
+    }
+  } catch {}
+  return [];
+}
+
+function saveUserIds(ids: string[]): void {
+  const dir = dirname(USER_IDS_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(USER_IDS_FILE, JSON.stringify(ids, null, 2));
+}
+
+function addUserId(id: string): void {
+  const ids = loadUserIds();
+  if (!ids.includes(id)) {
+    ids.push(id);
+    saveUserIds(ids);
+    console.log(`[Telegram] Registered user: ${id}`);
+  }
+}
+
 function addGroupId(id: string): void {
   const ids = loadGroupIds();
   if (!ids.includes(id)) {
@@ -58,7 +83,8 @@ function removeGroupId(id: string): void {
 function getAllChatIds(): string[] {
   const envIds = getChatIds();
   const groupIds = loadGroupIds();
-  const combined = new Set([...envIds, ...groupIds]);
+  const userIds = loadUserIds();
+  const combined = new Set([...envIds, ...groupIds, ...userIds]);
   return Array.from(combined);
 }
 
@@ -350,6 +376,10 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
   const isMentioned = isMentionedInText(text, botUsername);
 
   console.log(`[Telegram] Message from ${chatId} (${chatType}): ${text}`);
+
+  if (chatType === "private") {
+    addUserId(String(chatId));
+  }
 
   if (isGroupChat(chatType) || isChannelChat(chatType)) {
     if (!isCommand && !isMentioned) {
