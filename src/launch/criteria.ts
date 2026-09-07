@@ -16,7 +16,7 @@ function calculateConfidence(
   recentLaunches: number
 ): {
   confidence: number;
-  platform: "pumpfun" | "raydium";
+  platform: "pumpfun" | "raydium" | "noxafun" | "uniswap";
   reasoning: string;
   estimated_cost_sol: number;
   should_launch: boolean;
@@ -92,8 +92,8 @@ function calculateConfidence(
 
   confidence = Math.max(0, Math.min(1, confidence));
 
-  const platform = signal.liquidity > 50000 ? "raydium" : "pumpfun";
-  const estimatedCost = platform === "pumpfun" ? 0.01 : 5.0;
+  const platform = signal.liquidity > 50000 ? "uniswap" : "noxafun";
+  const estimatedCost = platform === "noxafun" ? 0.01 : 0.05;
 
   const minConfidence = parseFloat(
     process.env.LAUNCH_MIN_CONFIDENCE || "0.75"

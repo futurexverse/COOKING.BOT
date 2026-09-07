@@ -1,22 +1,8 @@
-import {
-  Connection,
-  Keypair,
-  Transaction,
-  SystemProgram,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
-import {
-  createAssociatedTokenAccountInstruction,
-  createInitializeMintInstruction,
-  getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
-  MINT_SIZE,
-} from "@solana/spl-token";
-import bs58 from "bs58";
 import type { LaunchProposal, LaunchRecord } from "../schemas/index.js";
 import { randomUUID } from "crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { launchTokenViaNofxa } from "../market/sources/noxa.js";
 
 const DATA_DIR = process.env.ORACLE_DATA_DIR || "data";
 const LAUNCHES_FILE = join(DATA_DIR, "launches.json");
@@ -41,93 +27,42 @@ function saveLaunches(): void {
   writeFileSync(LAUNCHES_FILE, JSON.stringify(activeLaunches, null, 2));
 }
 
-function getConnection(): Connection {
-  const rpcUrl =
-    process.env.SOLANA_RPC_URL ||
-    "https://api.mainnet-beta.solana.com";
-  return new Connection(rpcUrl, "confirmed");
-}
+loadLaunches();
 
-function getKeypair(): Keypair {
-  const privateKey = process.env.SOLANA_PRIVATE_KEY;
-  if (!privateKey) {
-    throw new Error("SOLANA_PRIVATE_KEY is required for token launches");
-  }
-  const decoded = bs58.decode(privateKey);
-  return Keypair.fromSecretKey(decoded);
-}
-
-async function launchOnPumpfun(
+async function launchViaNofxa(
   proposal: LaunchProposal
 ): Promise<LaunchRecord> {
-  const connection = getConnection();
-  const wallet = getKeypair();
-
-  const balance = await connection.getBalance(wallet.publicKey);
-  const minBalance = parseFloat(
-    process.env.LAUNCH_MAX_COST_SOL || "5"
-  ) * 1e9;
-  if (balance < minBalance + 0.01e9) {
-    throw new Error(
-      `Insufficient SOL balance: ${balance / 1e9} SOL (need ${(minBalance + 0.01e9) / 1e9})`
-    );
+  const pk = process.env.WALLET_PRIVATE_KEY;
+  if (!pk) {
+    throw new Error("WALLET_PRIVATE_KEY is required for token launches on Robinhood Chain");
   }
 
-  const mintKeypair = Keypair.generate();
-
-  const lamports = await connection.getMinimumBalanceForRentExemption(
-    MINT_SIZE
-  );
-
-  const createAccountIx = SystemProgram.createAccount({
-    fromPubkey: wallet.publicKey,
-    newAccountPubkey: mintKeypair.publicKey,
-    space: MINT_SIZE,
-    lamports,
-    programId: TOKEN_PROGRAM_ID,
+  const result = await launchTokenViaNofxa({
+    name: proposal.name,
+    symbol: proposal.symbol,
+    description: `Launched by COOKING on Robinhood Chain`,
+    image: "",
+    website: "",
+    twitter: "",
+    telegram: "",
   });
 
-  const initMintIx = createInitializeMintInstruction(
-    mintKeypair.publicKey,
-    9,
-    wallet.publicKey,
-    wallet.publicKey,
-    TOKEN_PROGRAM_ID
-  );
-
-  const ata = await getAssociatedTokenAddress(
-    mintKeypair.publicKey,
-    wallet.publicKey
-  );
-
-  const createAtaIx = await createAssociatedTokenAccountInstruction(
-    wallet.publicKey,
-    ata,
-    wallet.publicKey,
-    mintKeypair.publicKey
-  );
-
-  const tx = new Transaction().add(
-    createAccountIx,
-    initMintIx,
-    createAtaIx
-  );
-
-  const signature = await sendAndConfirmTransaction(connection, tx, [
-    wallet,
-    mintKeypair,
-  ]);
+  if (!result || !result.success || !result.token_address) {
+    throw new Error(`Launch failed: ${result?.error || "unknown error"}`);
+  }
 
   const record: LaunchRecord = {
     decision_id: proposal.decision_id,
     symbol: proposal.symbol,
     name: proposal.name,
-    mint: mintKeypair.publicKey.toBase58(),
-    platform: "pumpfun",
-    tx_signature: signature,
-    cost_sol: (lamports + 5000) / 1e9,
+    mint: result.token_address,
+    platform: "noxafun",
+    tx_signature: result.tx_hash || "",
+    cost_sol: proposal.estimated_cost_sol,
     launched_at: Date.now(),
     guardian_active: true,
+    initial_price: 0,
+    initial_liquidity: 0,
   };
 
   activeLaunches.push(record);
@@ -145,22 +80,14 @@ export async function executeLaunch(
     );
   }
 
-  const platform =
-    process.env.LAUNCH_PLATFORM || proposal.platform || "auto";
-
-  switch (platform) {
-    case "pumpfun":
-      return launchOnPumpfun(proposal);
-    case "raydium":
-      throw new Error("Raydium launch not yet implemented");
-    case "auto":
-    default:
-      return launchOnPumpfun(proposal);
-  }
+  return launchViaNofxa(proposal);
 }
 
 export function getActiveLaunches(): LaunchRecord[] {
-  loadLaunches();
+  return activeLaunches.filter((l) => l.guardian_active);
+}
+
+export function getAllLaunches(): LaunchRecord[] {
   return activeLaunches;
 }
 

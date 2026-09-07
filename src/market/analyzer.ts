@@ -10,6 +10,8 @@ import { fetchDexscreenerTrending } from "./sources/dexscreener.js";
 import { fetchTokenSafety } from "./sources/helius.js";
 import { fetchPumpFunTrending } from "./sources/pumpfun.js";
 import { fetchLunarCrushTrending } from "./sources/lunacrush.js";
+import { fetchUniswapTopPools } from "./sources/uniswap.js";
+import { fetchBlockscoutTrendingTokens } from "./sources/blockscout.js";
 import { refreshNarratives, getNarrativeScore, type NarrativeAnalysis } from "./narrative.js";
 import {
   rankTokens,
@@ -180,7 +182,7 @@ function calculateMarketHeat(candidates: number, bestScore: number): number {
 }
 
 async function fetchTrendingFromSource(): Promise<TokenCandidate[]> {
-  const source = process.env.ORACLE_TRENDING_SOURCE || "dexscreener";
+  const source = process.env.ORACLE_TRENDING_SOURCE || "uniswap";
   const limit = parseInt(
     process.env.ORACLE_JUPITER_TRENDING_LIMIT || "50",
     10
@@ -191,6 +193,10 @@ async function fetchTrendingFromSource(): Promise<TokenCandidate[]> {
   const primaryPromise = (async () => {
     try {
       switch (source) {
+        case "uniswap":
+          return await fetchUniswapTopPools(limit);
+        case "blockscout":
+          return await fetchBlockscoutTrendingTokens(limit);
         case "dexscreener":
           return await fetchDexscreenerTrending(
             process.env.DEXSCREENER_QUERY || "solana"
@@ -198,41 +204,30 @@ async function fetchTrendingFromSource(): Promise<TokenCandidate[]> {
         case "jupiter":
           return await fetchJupiterTrending(limit);
         default:
-          return await fetchDexscreenerTrending(
-            process.env.DEXSCREENER_QUERY || "solana"
-          );
+          return await fetchUniswapTopPools(limit);
       }
     } catch (err) {
       console.log(`[Analyzer] ${source} failed:`, (err as Error).message);
       try {
-        return await fetchDexscreenerTrending(
-          process.env.DEXSCREENER_QUERY || "solana"
-        );
+        return await fetchUniswapTopPools(limit);
       } catch {
         return [];
       }
     }
   })();
 
-  const pumpfunPromise = fetchPumpFunTrending().catch((err) => {
-    console.error("[Analyzer] Pump.fun fetch failed:", (err as Error).message);
+  const blockscoutPromise = fetchBlockscoutTrendingTokens(10).catch((err) => {
+    console.error("[Analyzer] Blockscout fetch failed:", (err as Error).message);
     return [];
   });
 
-  const lunacrushPromise = fetchLunarCrushTrending().catch((err) => {
-    console.error("[Analyzer] LunarCrush fetch failed:", (err as Error).message);
-    return [];
-  });
-
-  const [primary, pfTokens, lcTokens] = await Promise.allSettled([
+  const [primary, bsTokens] = await Promise.allSettled([
     primaryPromise,
-    pumpfunPromise,
-    lunacrushPromise,
+    blockscoutPromise,
   ]);
 
   if (primary.status === "fulfilled") allCandidates.push(...primary.value);
-  if (pfTokens.status === "fulfilled") allCandidates.push(...pfTokens.value);
-  if (lcTokens.status === "fulfilled") allCandidates.push(...lcTokens.value);
+  if (bsTokens.status === "fulfilled") allCandidates.push(...bsTokens.value);
 
   const seen = new Set<string>();
   return allCandidates.filter((t) => {

@@ -1,4 +1,5 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { getTokenPrice } from "../market/sources/uniswap.js";
+import { fetchTokenHolders } from "../market/sources/blockscout.js";
 
 export interface PerformanceSnapshot {
   mint: string;
@@ -24,39 +25,23 @@ export interface PerformanceAlert {
   timestamp: number;
 }
 
-function getConnection(): Connection {
-  const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-  return new Connection(rpcUrl, "confirmed");
-}
-
 export async function getPerformanceSnapshot(
   mint: string,
   symbol: string,
   initialPrice?: number | null
 ): Promise<PerformanceSnapshot> {
-  const connection = getConnection();
   let holders: number | null = null;
   let price: number | null = null;
 
   try {
-    const largestAccounts = await connection.getTokenLargestAccounts(
-      new PublicKey(mint)
-    );
-    holders = largestAccounts.value.length;
+    const holderData = await fetchTokenHolders(mint);
+    holders = holderData.count || null;
   } catch {
     /* ignore */
   }
 
   try {
-    const priceData = await fetch(
-      `https://api.jup.ag/price/v2?ids=${mint}`
-    );
-    if (priceData.ok) {
-      const json = (await priceData.json()) as {
-        data: Record<string, { price: number }>;
-      };
-      price = json.data[mint]?.price || null;
-    }
+    price = await getTokenPrice(mint);
   } catch {
     /* ignore */
   }
@@ -90,9 +75,6 @@ export function checkPerformanceAlerts(
 
   const priceThresholdPct = parseFloat(
     process.env.GUARDIAN_PRICE_ALERT_PCT || "20"
-  );
-  const volumeMultiplier = parseFloat(
-    process.env.GUARDIAN_VOLUME_ALERT_MULTIPLIER || "3"
   );
   const milestones = (process.env.GUARDIAN_HOLDER_MILESTONES || "100,500,1000,5000,10000")
     .split(",")
@@ -161,12 +143,4 @@ export function checkPerformanceAlerts(
   }
 
   return alerts;
-}
-
-export function calculatePnl(
-  currentPrice: number,
-  launchPrice: number
-): number {
-  if (launchPrice <= 0) return 0;
-  return ((currentPrice - launchPrice) / launchPrice) * 100;
 }

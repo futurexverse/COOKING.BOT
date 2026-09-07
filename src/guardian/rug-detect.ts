@@ -1,16 +1,10 @@
-import { Connection, PublicKey } from "@solana/web3.js";
-import { fetchTokenSafety } from "../market/sources/helius.js";
+import { checkTokenSafety, fetchTokenHolders } from "../market/sources/blockscout.js";
 
 export interface RugAlert {
   type: "freeze_authority" | "mint_authority" | "liquidity_drop" | "honeypot" | "concentrated_holders" | "low_liquidity";
   severity: "info" | "warning" | "critical";
   message: string;
   timestamp: number;
-}
-
-function getConnection(): Connection {
-  const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-  return new Connection(rpcUrl, "confirmed");
 }
 
 export async function detectRugSignals(
@@ -20,93 +14,63 @@ export async function detectRugSignals(
   const alerts: RugAlert[] = [];
   const now = Date.now();
 
-  const safety = await fetchTokenSafety(mint);
-  if (safety) {
-    if (safety.has_freeze_authority) {
-      alerts.push({
-        type: "freeze_authority",
-        severity: "critical",
-        message: `Freeze authority is ACTIVE on $${mint.slice(0, 6)}... — accounts can be frozen at any time`,
-        timestamp: now,
-      });
-    }
-
-    if (safety.has_mint_authority) {
-      alerts.push({
-        type: "mint_authority",
-        severity: "critical",
-        message: `Mint authority is ACTIVE on $${mint.slice(0, 6)}... — unlimited supply inflation possible`,
-        timestamp: now,
-      });
-    }
-  }
-
-  const connection = getConnection();
   try {
-    const largestAccounts = await connection.getTokenLargestAccounts(
-      new PublicKey(mint)
-    );
-    const holders = largestAccounts.value;
-
-    if (holders.length > 0) {
-      const totalSupply = holders.reduce(
-        (sum, h) => sum + BigInt(h.amount),
-        BigInt(0)
-      );
-      const topHolderAmount = BigInt(holders[0].amount);
-      const topHolderPct = Number((topHolderAmount * BigInt(100)) / totalSupply);
-
-      if (topHolderPct > 40) {
+    const safety = await checkTokenSafety(mint);
+    if (safety) {
+      if (safety.has_freeze_authority) {
         alerts.push({
-          type: "concentrated_holders",
-          severity: "warning",
-          message: `Top holder owns ${topHolderPct.toFixed(1)}% of supply — dump risk`,
+          type: "freeze_authority",
+          severity: "critical",
+          message: `Freeze authority is ACTIVE on ${mint.slice(0, 10)}... — accounts can be frozen at any time`,
           timestamp: now,
         });
       }
 
-      if (holders.length < 10) {
+      if (safety.has_mint_authority) {
         alerts.push({
-          type: "concentrated_holders",
-          severity: "warning",
-          message: `Only ${holders.length} large holders detected — low distribution`,
+          type: "mint_authority",
+          severity: "critical",
+          message: `Mint authority is ACTIVE on ${mint.slice(0, 10)}... — unlimited supply inflation possible`,
           timestamp: now,
         });
       }
     }
   } catch {
-    /* RPC errors are non-critical for rug detection */
+    /* ignore */
   }
 
-  if (previousLiquidity !== undefined) {
-    try {
-      const tokenAccounts = await connection.getTokenLargestAccounts(
-        new PublicKey(mint)
-      );
-      const currentHolders = tokenAccounts.value.length;
+  try {
+    const holders = await fetchTokenHolders(mint);
 
-      if (previousLiquidity > 0 && currentHolders < previousLiquidity * 0.3) {
-        alerts.push({
-          type: "liquidity_drop",
-          severity: "critical",
-          message: `Holder count dropped significantly — possible liquidity event`,
-          timestamp: now,
-        });
-      }
-    } catch {
-      /* ignore */
+    if (holders.topHolderPercentage > 40) {
+      alerts.push({
+        type: "concentrated_holders",
+        severity: "warning",
+        message: `Top holder owns ${holders.topHolderPercentage.toFixed(1)}% of supply — dump risk`,
+        timestamp: now,
+      });
     }
+
+    if (holders.count > 0 && holders.count < 10) {
+      alerts.push({
+        type: "concentrated_holders",
+        severity: "warning",
+        message: `Only ${holders.count} holders detected — low distribution`,
+        timestamp: now,
+      });
+    }
+  } catch {
+    /* ignore */
   }
 
   return alerts;
 }
 
 export async function simulateSell(
-  mint: string,
-  amount: number = 1000000
+  mint: string
 ): Promise<{ success: boolean; tax: number; error?: string }> {
   try {
-    const safety = await fetchTokenSafety(mint);
+    const safety = await checkTokenSafety(mint);
     if (safety?.has_freeze_authority) {
       return {
         success: false,

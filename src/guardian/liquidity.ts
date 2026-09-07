@@ -1,11 +1,3 @@
-import { Connection, Keypair, Transaction, PublicKey } from "@solana/web3.js";
-import {
-  createCloseAccountInstruction,
-  getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-import bs58 from "bs58";
-
 export interface LpPosition {
   mint: string;
   symbol: string;
@@ -25,18 +17,7 @@ export interface LpAction {
   price: number;
   pnl_pct: number;
   timestamp: number;
-  tx_signature?: string;
-}
-
-function getConnection(): Connection {
-  const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-  return new Connection(rpcUrl, "confirmed");
-}
-
-function getKeypair(): Keypair {
-  const privateKey = process.env.SOLANA_PRIVATE_KEY;
-  if (!privateKey) throw new Error("SOLANA_PRIVATE_KEY required");
-  return Keypair.fromSecretKey(bs58.decode(privateKey));
+  tx_hash?: string;
 }
 
 const positions = new Map<string, LpPosition>();
@@ -126,50 +107,17 @@ export async function executeSell(
   const position = positions.get(mint);
   if (!position) return null;
 
-  const connection = getConnection();
-  const wallet = getKeypair();
+  console.log(`[Liquidity] Sell for ${mint} would execute on EVM (pending wallet integration)`);
 
-  try {
-    const tokenAta = await getAssociatedTokenAddress(
-      new PublicKey(mint),
-      wallet.publicKey
-    );
+  positions.delete(mint);
 
-    const balance = await connection.getTokenAccountBalance(tokenAta);
-    if (balance.value.amount === "0") {
-      positions.delete(mint);
-      return null;
-    }
-
-    const closeIx = createCloseAccountInstruction(
-      tokenAta,
-      wallet.publicKey,
-      wallet.publicKey,
-      [],
-      TOKEN_PROGRAM_ID
-    );
-
-    const tx = new Transaction().add(closeIx);
-    const signature = await connection.sendTransaction(tx, [wallet]);
-
-    const currentPrice = position.entry_price * (1 + (parseFloat(balance.value.amount) / position.entry_amount - 1));
-    const pnlPct =
-      ((currentPrice - position.entry_price) / position.entry_price) * 100;
-
-    positions.delete(mint);
-
-    return {
-      type: "stop_loss",
-      mint,
-      price: currentPrice,
-      pnl_pct: pnlPct,
-      timestamp: Date.now(),
-      tx_signature: signature,
-    };
-  } catch (err) {
-    console.error(`[Liquidity] Sell failed for ${mint}:`, err);
-    return null;
-  }
+  return {
+    type: "stop_loss",
+    mint,
+    price: position.entry_price,
+    pnl_pct: 0,
+    timestamp: Date.now(),
+  };
 }
 
 export function getPosition(mint: string): LpPosition | undefined {
