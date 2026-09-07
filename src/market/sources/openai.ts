@@ -1,11 +1,11 @@
-const OPENAI_BASE = "https://api.openai.com/v1";
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 function getApiKey(): string {
-  return process.env.OPENAI_API_KEY || "";
+  return process.env.GOOGLE_AI_KEY || "";
 }
 
 function getModel(): string {
-  return "gpt-5-nano";
+  return "gemini-2.0-flash";
 }
 
 export interface NarrativeAnalysis {
@@ -14,26 +14,10 @@ export interface NarrativeAnalysis {
   reasoning: string;
 }
 
-const NARRATIVE_SCHEMA = {
-  type: "object",
-  properties: {
-    trending_narratives: {
-      type: "array",
-      items: { type: "string" },
-    },
-    theme_scores: {
-      type: "object",
-      additionalProperties: { type: "number" },
-    },
-    reasoning: { type: "string" },
-  },
-  required: ["trending_narratives", "theme_scores", "reasoning"],
-};
-
-const SYSTEM_PROMPT = `You are COOKING, an AI Solana token launch analyst. Analyze the provided token market data and social metrics to identify trending narratives (themes, memes, sectors) driving the current Solana meme coin market.
+const SYSTEM_PROMPT = `You are COOKING, an AI Robinhood Chain token launch analyst. Analyze the provided token market data and social metrics to identify trending narratives (themes, memes, sectors) driving the current Robinhood Chain meme coin market.
 
 Return a JSON object with:
-- trending_narratives: array of narrative names (e.g., ["AI agents", "political memes", "cat coins", "Solana phone", "DePIN"])
+- trending_narratives: array of narrative names (e.g., ["AI agents", "political memes", "cat coins", "tokenized stocks", "DePIN"])
 - theme_scores: object mapping each narrative to a relevance score 0-100 (e.g., {"AI agents": 85, "cat coins": 60})
 - reasoning: brief explanation of why these narratives are trending
 
@@ -42,71 +26,64 @@ Focus on:
 - Which narratives have momentum (rising mentions, positive sentiment)
 - Which narratives are fading
 
-Keep it concise. Max 5 narratives.`;
+Keep it concise. Max 5 narratives.
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks.`;
 
 export async function analyzeNarrative(
-  pumpfunData: Array<{ symbol: string; name: string; market_cap: number; holder_count: number; description: string }>,
-  lunacrushData: Array<{ symbol: string; name: string; social_sentiment: number; social_mentions: number; volume_24h: number }>
+  pumpfunData: Array<{ symbol: string; name?: string; market_cap?: number; holder_count?: number; description?: string }>,
+  lunacrushData: Array<{ symbol: string; name?: string; social_sentiment?: number; social_mentions?: number; volume_24h?: number }>
 ): Promise<NarrativeAnalysis> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return {
-      trending_narratives: ["AI agents", "political memes", "cat coins", "DePIN", "gaming tokens"],
-      theme_scores: { "AI agents": 60, "political memes": 55, "cat coins": 50, "DePIN": 40, "gaming tokens": 35 },
-      reasoning: "OpenAI API key not configured. Using default narratives.",
-    };
+    return fallbackAnalysis();
   }
 
-  const pumpfunSummary = pumpfunData.slice(0, 10).map((t) => ({
+  const tokenSummary = pumpfunData.slice(0, 10).map((t) => ({
     symbol: t.symbol,
-    name: t.name,
-    mc: t.market_cap,
-    holders: t.holder_count,
-    desc: t.description?.substring(0, 100) || "",
+    name: t.name || "",
+    mc: t.market_cap || 0,
+    holders: t.holder_count || 0,
   }));
 
-  const lunacrushSummary = lunacrushData.slice(0, 10).map((t) => ({
+  const socialSummary = lunacrushData.slice(0, 10).map((t) => ({
     symbol: t.symbol,
-    name: t.name,
-    sentiment: t.social_sentiment,
-    mentions: t.social_mentions,
-    vol: t.volume_24h,
+    name: t.name || "",
+    mentions: t.social_mentions || 0,
+    vol: t.volume_24h || 0,
   }));
 
-  const userMessage = `Pump.fun new tokens:\n${JSON.stringify(pumpfunSummary, null, 2)}\n\nLunarCrush social data:\n${JSON.stringify(lunacrushSummary, null, 2)}\n\nIdentify the top trending narratives.`;
+  const userMessage = `Token data:\n${JSON.stringify(tokenSummary, null, 2)}\n\nSocial data:\n${JSON.stringify(socialSummary, null, 2)}\n\nIdentify the top trending narratives on Robinhood Chain.`;
 
   try {
-    const resp = await fetch(`${OPENAI_BASE}/chat/completions`, {
+    const url = `${GEMINI_BASE}/models/${getModel()}:generateContent?key=${apiKey}`;
+    const resp = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: getModel(),
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.3,
-        max_tokens: 500,
-        response_format: { type: "json_object" },
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ parts: [{ text: userMessage }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 500,
+          responseMimeType: "application/json",
+        },
       }),
       signal: AbortSignal.timeout(15000),
     });
 
     if (!resp.ok) {
       const err = await resp.text();
-      console.error(`[OpenAI] API error ${resp.status}:`, err);
+      console.error(`[Gemini] API error ${resp.status}:`, err);
       return fallbackAnalysis();
     }
 
     const data = (await resp.json()) as {
-      choices: Array<{ message: { content: string } }>;
+      candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
     };
 
-    const content = data.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(content) as NarrativeAnalysis;
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const parsed = JSON.parse(text) as NarrativeAnalysis;
 
     return {
       trending_narratives: parsed.trending_narratives || [],
@@ -114,15 +91,15 @@ export async function analyzeNarrative(
       reasoning: parsed.reasoning || "Analysis complete.",
     };
   } catch (err) {
-    console.error("[OpenAI] narrative analysis failed:", err);
+    console.error("[Gemini] narrative analysis failed:", err);
     return fallbackAnalysis();
   }
 }
 
 function fallbackAnalysis(): NarrativeAnalysis {
   return {
-    trending_narratives: ["AI agents", "political memes", "cat coins", "DePIN", "gaming tokens"],
-    theme_scores: { "AI agents": 60, "political memes": 55, "cat coins": 50, "DePIN": 40, "gaming tokens": 35 },
-    reasoning: "Analysis failed. Using default trending narratives.",
+    trending_narratives: ["AI agents", "tokenized stocks", "cat coins", "DePIN", "political memes"],
+    theme_scores: { "AI agents": 60, "tokenized stocks": 55, "cat coins": 50, "DePIN": 40, "political memes": 35 },
+    reasoning: "Analysis unavailable. Using default trending narratives.",
   };
 }
