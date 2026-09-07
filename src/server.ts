@@ -114,15 +114,55 @@ app.get("/api/config", async () => {
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
+const SCAN_INTERVAL = parseInt(process.env.ORACLE_SCAN_INTERVAL_SECONDS || "300", 10) * 1000;
+
+async function runScanAndPropose(): Promise<void> {
+  try {
+    const { analyzeMarket, getMarketHeat } = await import("./market/analyzer.js");
+    const { ScanRequestSchema } = await import("./schemas/index.js");
+    const { evaluateLaunchConditions } = await import("./launch/criteria.js");
+
+    const emptyScan = ScanRequestSchema.parse({ solana_trending: [] });
+    const result = await analyzeMarket(emptyScan);
+
+    console.log(`[Server] Scan: ${result.candidates_scored} candidates | should_post=${result.should_post} | anchor=${result.anchor || "NONE"}`);
+
+    if (result.should_post && result.signal) {
+      const sig = result.signal;
+      const heat = getMarketHeat();
+
+      console.log(`[Server] Actionable signal: $${sig.symbol} score=${sig.score.toFixed(3)} vol=$${sig.volume_24h}`);
+
+      try {
+        const proposal = await evaluateLaunchConditions({
+          signal: sig,
+          market_heat: heat,
+        });
+
+        console.log(`[Server] Proposal: $${proposal.symbol} | confidence=${(proposal.confidence * 100).toFixed(0)}% | status=${proposal.status}`);
+
+        if (proposal.status === "pending") {
+          console.log(`[Server] Proposal sent to Telegram — awaiting approval (ID: ${proposal.decision_id})`);
+        }
+      } catch (err) {
+        console.error("[Server] Launch evaluation failed:", err);
+      }
+    }
+  } catch (err) {
+    console.error("[Server] Scan cycle error:", err);
+  }
+}
+
 try {
   await app.listen({ port: PORT, host: HOST });
   console.log(`Cooking running on http://${HOST}:${PORT}`);
   startTelegramBot();
 
-  const { analyzeMarket } = await import("./market/analyzer.js");
-  const { ScanRequestSchema } = await import("./schemas/index.js");
-  const emptyScan = ScanRequestSchema.parse({ solana_trending: [] });
-  analyzeMarket(emptyScan).catch(() => {});
+  console.log(`[Server] Running initial scan...`);
+  runScanAndPropose().catch(() => {});
+
+  setInterval(runScanAndPropose, SCAN_INTERVAL);
+  console.log(`[Server] Auto-scan every ${SCAN_INTERVAL / 1000}s`);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

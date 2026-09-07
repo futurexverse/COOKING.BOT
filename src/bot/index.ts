@@ -14,7 +14,7 @@ import {
   isDiverseAnchor,
   markAnchorPosted,
 } from "../dedup/deduplication.js";
-import type { ScanRequest } from "../schemas/index.js";
+import type { ScanRequest, ScoredSignal } from "../schemas/index.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
@@ -58,7 +58,7 @@ function saveState(): void {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-async function runScanCycle(): Promise<void> {
+async function runScanCycle(): Promise<{ signal?: ScoredSignal; heat?: number; candidates: number }> {
   console.log(`\n[Bot] === Scan Cycle #${state.cycle_count + 1} ===`);
 
   const request: ScanRequest = {
@@ -100,12 +100,16 @@ async function runScanCycle(): Promise<void> {
     updateMindSnapshot(
       `Market heat: ${(heat * 100).toFixed(0)}% | Best signal: $${sig.symbol} (${(sig.score * 100).toFixed(0)}%) | Candidates: ${result.candidates_scored}`
     );
+
+    saveState();
+    return { signal: sig, heat, candidates: result.candidates_scored };
   }
 
   saveState();
+  return { candidates: result.candidates_scored };
 }
 
-async function runLaunchCycle(): Promise<void> {
+async function runLaunchCycle(signal?: ScoredSignal, marketHeat?: number): Promise<void> {
   let trendingNarratives: string[] = [];
   try {
     const narrativeAnalysis = await refreshNarratives();
@@ -115,7 +119,8 @@ async function runLaunchCycle(): Promise<void> {
   }
 
   const proposal = await evaluateLaunchConditions({
-    market_heat: 0.5,
+    signal,
+    market_heat: marketHeat || 0.5,
     trending_narratives: trendingNarratives,
   });
 
@@ -189,8 +194,10 @@ function calculateMarketHeat(candidates: number, bestScore: number): number {
 async function runFullCycle(): Promise<void> {
   console.log(`\n[Bot] Starting full cycle at ${new Date().toISOString()}`);
 
+  let scanResult: { signal?: ScoredSignal; heat?: number; candidates: number } = { candidates: 0 };
+
   try {
-    await runScanCycle();
+    scanResult = await runScanCycle();
   } catch (err) {
     console.error("[Bot] Scan cycle error:", err);
   }
@@ -203,7 +210,7 @@ async function runFullCycle(): Promise<void> {
 
   if (process.env.LAUNCH_ENABLED === "true") {
     try {
-      await runLaunchCycle();
+      await runLaunchCycle(scanResult.signal, scanResult.heat);
     } catch (err) {
       console.error("[Bot] Launch cycle error:", err);
     }
