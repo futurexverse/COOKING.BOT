@@ -1,7 +1,7 @@
 import type { TokenCandidate } from "../../schemas/index.js";
 
 function getBlockscoutApi(): string {
-  return "https://api.blockscout.com/4663";
+  return "https://robinhoodchain.blockscout.com";
 }
 
 function getBlockscoutKey(): string {

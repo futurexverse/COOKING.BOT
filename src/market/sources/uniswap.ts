@@ -1,86 +1,104 @@
 import type { TokenCandidate } from "../../schemas/index.js";
 
-const UNISWAP_SUBGRAPH = "https://api.studio.thegraph.com/query/robinhood-chain/uniswap-v3";
-
-const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-
-interface UniswapPool {
-  id: string;
-  token0: { symbol: string; name: string; id: string; decimals: string };
-  token1: { symbol: string; name: string; id: string; decimals: string };
-  volumeUSD: string;
-  liquidity: string;
-  token0Price: string;
-  token1Price: string;
-  txCount: string;
-  totalValueLockedUSD: string;
-  feesUSD: string;
-}
-
-function getRpcUrl(): string {
-  return process.env.ROBINHOOD_RPC_URL || "https://rpc.mainnet.chain.robinhood.com";
-}
+const DEXSCREENER_ROBINHOOD = "https://api.dexscreener.com/latest/dex/search?q=chain:robinhood";
 
 function getBlockscoutApi(): string {
-  return "https://api.blockscout.com/4663";
+  return "https://robinhoodchain.blockscout.com";
 }
 
 function getBlockscoutKey(): string {
   return process.env.BLOCKSCOUT_API_KEY || "";
 }
 
-async function querySubgraph(query: string): Promise<unknown> {
-  const resp = await fetch(UNISWAP_SUBGRAPH, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!resp.ok) throw new Error(`Subgraph ${resp.status}`);
-  const data = (await resp.json()) as { data: unknown };
-  return data.data;
+interface DexscreenerPair {
+  chainId: string;
+  dexId: string;
+  url: string;
+  pairAddress: string;
+  baseToken: { address: string; name: string; symbol: string };
+  quoteToken: { address: string; name: string; symbol: string };
+  priceNative: string;
+  priceUsd: string;
+  volume: { h24: number; h6: number; h1: number };
+  priceChange: { h24: number; h6: number; h1: number };
+  liquidity: { usd: number; base: number; quote: number };
+  fdv: number;
+  marketCap: number;
+  txns: { h24: { buys: number; sells: number } };
 }
 
 export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]> {
   try {
-    const data = (await querySubgraph(`{
-      pools(first: ${limit}, orderBy: volumeUSD, orderDirection: desc, where: {token0_in: ["${WETH}"], token1_not: "${WETH}"}) {
-        id
-        token0 { symbol name id decimals }
-        token1 { symbol name id decimals }
-        volumeUSD
-        liquidity
-        token0Price
-        token1Price
-        txCount
-        totalValueLockedUSD
-        feesUSD
-      }
-    }`)) as { pools: UniswapPool[] };
+    const resp = await fetch(
+      "https://api.dexscreener.com/latest/dex/tokens/boosted/top/v1",
+      { signal: AbortSignal.timeout(10000) }
+    );
 
-    return (data.pools || []).map((pool) => {
-      const token = pool.token0.id.toLowerCase() === WETH.toLowerCase() ? pool.token1 : pool.token0;
-      const wethToken = pool.token0.id.toLowerCase() === WETH.toLowerCase() ? pool.token0 : pool.token1;
-      const vol = parseFloat(pool.volumeUSD) || 0;
-      const tvl = parseFloat(pool.totalValueLockedUSD) || 0;
-      const price = parseFloat(wethToken.id.toLowerCase() === WETH.toLowerCase() ? pool.token1Price : pool.token0Price) || 0;
+    if (!resp.ok) throw new Error(`Dexscreener ${resp.status}`);
+    const data = (await resp.json()) as Array<{ chainId: string; tokenAddress: string }>;
 
-      return {
-        symbol: token.symbol?.toUpperCase() || "?",
-        name: token.name || "Unknown",
-        mint: token.id,
-        change_24h: Math.random() * 50 - 5,
-        change_1h: Math.random() * 30 - 5,
-        volume_24h: vol,
-        liquidity: tvl,
-        holders: parseInt(pool.txCount) || 0,
-        market_cap: tvl * 2,
-        price,
+    const rhTokens = data.filter((t) => t.chainId === "robinhood").slice(0, limit);
+
+    if (rhTokens.length === 0) {
+      const allResp = await fetch(
+        "https://api.dexscreener.com/latest/dex/tokens/0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!allResp.ok) return [];
+      const allData = (await allResp.json()) as { pairs: DexscreenerPair[] };
+      const rhPairs = (allData.pairs || []).filter((p) => p.chainId === "robinhood");
+
+      return rhPairs.slice(0, limit).map((pair) => ({
+        symbol: pair.baseToken.symbol?.toUpperCase() || "?",
+        name: pair.baseToken.name || "Unknown",
+        mint: pair.baseToken.address,
+        change_24h: pair.priceChange?.h24 || 0,
+        change_1h: pair.priceChange?.h1 || 0,
+        volume_24h: pair.volume?.h24 || 0,
+        liquidity: pair.liquidity?.usd || 0,
+        holders: pair.txns?.h24?.buys + pair.txns?.h24?.sells || 0,
+        market_cap: pair.marketCap || pair.fdv || 0,
+        price: parseFloat(pair.priceUsd) || 0,
         source: "uniswap" as const,
-      };
-    });
+      }));
+    }
+
+    const tokenAddresses = rhTokens.map((t) => t.tokenAddress).join(",");
+    const detailResp = await fetch(
+      `https://api.dexscreener.com/tokens/v1/robinhood/${tokenAddresses}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+
+    if (!detailResp.ok) return [];
+    const pairs = (await detailResp.json()) as DexscreenerPair[];
+
+    const bestByVolume = new Map<string, DexscreenerPair>();
+    for (const pair of pairs) {
+      const addr = pair.baseToken.address.toLowerCase();
+      const existing = bestByVolume.get(addr);
+      if (!existing || (pair.volume?.h24 || 0) > (existing.volume?.h24 || 0)) {
+        bestByVolume.set(addr, pair);
+      }
+    }
+
+    return Array.from(bestByVolume.values())
+      .sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0))
+      .slice(0, limit)
+      .map((pair) => ({
+        symbol: pair.baseToken.symbol?.toUpperCase() || "?",
+        name: pair.baseToken.name || "Unknown",
+        mint: pair.baseToken.address,
+        change_24h: pair.priceChange?.h24 || 0,
+        change_1h: pair.priceChange?.h1 || 0,
+        volume_24h: pair.volume?.h24 || 0,
+        liquidity: pair.liquidity?.usd || 0,
+        holders: pair.txns?.h24?.buys + pair.txns?.h24?.sells || 0,
+        market_cap: pair.marketCap || pair.fdv || 0,
+        price: parseFloat(pair.priceUsd) || 0,
+        source: "uniswap" as const,
+      }));
   } catch (err) {
-    console.error("[Uniswap] fetch top pools failed:", err);
+    console.error("[Uniswap/Dexscreener] fetch top pools failed:", err);
     return [];
   }
 }
@@ -94,12 +112,10 @@ export async function fetchTokenDataFromBlockscout(
   decimals: number;
 } | null> {
   try {
-    const key = getBlockscoutKey();
     const base = getBlockscoutApi();
-    const keyParam = key ? `&apikey=${key}` : "";
 
     const tokenResp = await fetch(
-      `${base}/api/v2/tokens/${contractAddress}${keyParam ? `?apikey=${key}` : ""}`,
+      `${base}/api/v2/tokens/${contractAddress}`,
       { signal: AbortSignal.timeout(8000) }
     );
 
@@ -109,11 +125,6 @@ export async function fetchTokenDataFromBlockscout(
       total_supply: string;
       decimals: string;
     };
-
-    const holdersResp = await fetch(
-      `${base}/api/v2/tokens/${contractAddress}/holders?page=1&items_count=1${keyParam}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
 
     return {
       balance: "0",
@@ -131,18 +142,15 @@ export async function getTokenPrice(
   contractAddress: string
 ): Promise<number | null> {
   try {
-    const base = getBlockscoutApi();
-    const key = getBlockscoutKey();
-    const keyParam = key ? `?apikey=${key}` : "";
-
     const resp = await fetch(
-      `${base}/api/v2/tokens/${contractAddress}${keyParam}`,
+      `https://api.dexscreener.com/tokens/v1/robinhood/${contractAddress}`,
       { signal: AbortSignal.timeout(8000) }
     );
 
     if (!resp.ok) return null;
-    const data = (await resp.json()) as { exchange_rate: string };
-    return parseFloat(data.exchange_rate) || null;
+    const data = (await resp.json()) as DexscreenerPair[];
+    if (data.length === 0) return null;
+    return parseFloat(data[0].priceUsd) || null;
   } catch {
     return null;
   }
