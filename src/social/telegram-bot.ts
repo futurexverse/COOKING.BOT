@@ -418,25 +418,57 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
     await answerCallbackQuery(cb.id as string, result.success ? "Approved!" : result.message);
     if (chatId && messageId) {
       await editMessageReplyMarkup(chatId, messageId, []);
-      await sendMessage(chatId, `<b>Launch Approved</b>\nID: <code>${decisionId}</code>\n${result.message}`);
 
       if (result.success) {
-        try {
-          const { getProposalById } = await import("./approval.js");
-          const { executeLaunch } = await import("../launch/launcher.js");
-          const entry = getProposalById(decisionId);
-          if (entry && entry.proposal) {
-            const proposal = entry.proposal as { status: string; [key: string]: unknown };
-            proposal.status = "approved";
-            await sendMessage(chatId, `<b>Executing launch...</b>`);
-            const record = await executeLaunch(proposal as any);
-            await sendMessage(chatId, `<b>Launch Complete!</b>\n$${record.symbol} deployed\nMint: <code>${record.mint}</code>\nPlatform: ${record.platform}\nTx: <code>${record.tx_signature}</code>`);
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error("[Telegram] Launch execution failed:", msg);
-          await sendMessage(chatId, `<b>Launch Failed</b>\n${msg}`);
+        const { getProposalById } = await import("./approval.js");
+        const entry = getProposalById(decisionId);
+        const prop = entry?.proposal as Record<string, unknown> | undefined;
+        const signal = prop?.signal as Record<string, unknown> | undefined;
+        const symbol = (prop?.symbol as string) || (signal?.symbol as string) || "?";
+        const mint = (signal?.mint as string) || "";
+        const name = (prop?.name as string) || (signal?.name as string) || symbol;
+        const confidence = ((prop?.confidence as number) || 0) * 100;
+        const platform = (prop?.platform as string) || "noxafun";
+
+        const noxaUrl = `https://fun.noxa.fi`;
+        const uniswapUrl = `https://app.uniswap.org/add/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73/${mint}?chainId=4663`;
+        const dashboardUrl = `https://cookingbot-production-bcf3.up.railway.app/#deploy`;
+        const explorerUrl = `https://robinhoodchain.blockscout.com/address/${mint}`;
+
+        const approveText = [
+          `<b>✅ Launch Approved — $${symbol}</b>`,
+          ``,
+          `Confidence: <b>${confidence.toFixed(0)}%</b>`,
+          `Platform: ${platform}`,
+          `Name: ${name}`,
+          mint ? `Contract: <code>${mint}</code>` : ``,
+          ``,
+          `<b>Deploy this token:</b>`,
+        ].filter(Boolean).join("\n");
+
+        const deployKeyboard = [
+          [
+            { text: "Deploy via NOXA Fun", url: noxaUrl },
+          ],
+          [
+            { text: "Create Pool on Uniswap", url: uniswapUrl },
+          ],
+          [
+            { text: "Open Dashboard Deploy", url: dashboardUrl },
+          ],
+        ];
+
+        if (mint) {
+          deployKeyboard.push([
+            { text: "View on Explorer", url: explorerUrl },
+          ]);
         }
+
+        await sendMessage(chatId, approveText, {
+          reply_markup: { inline_keyboard: deployKeyboard },
+        });
+      } else {
+        await sendMessage(chatId, `<b>Launch Approved</b>\nID: <code>${decisionId}</code>\n${result.message}`);
       }
     }
   } else if (data.startsWith("reject:")) {

@@ -341,6 +341,50 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Deploy Token -->
+                <div id="deploy-section" class="space-y-4 hidden">
+                    <div class="flex justify-between items-center px-4">
+                        <h2 class="text-xl font-bold tracking-tight flex items-center gap-3">
+                            <span class="w-2 h-8 bg-purple-600 rounded-full"></span>
+                            Deploy Token
+                        </h2>
+                        <button onclick="closeDeploy()" class="text-neutral-500 hover:text-white text-xs font-bold uppercase tracking-widest">Close</button>
+                    </div>
+                    <div class="glass p-6 rounded-2xl space-y-5">
+                        <div id="deploy-loading" class="text-center py-8">
+                            <div class="w-8 h-8 border-2 border-white/10 border-t-purple-500 rounded-full animate-spin mx-auto mb-3"></div>
+                            <p class="text-xs text-neutral-500">Loading proposal...</p>
+                        </div>
+                        <div id="deploy-content" class="hidden space-y-5">
+                            <div class="text-center space-y-2">
+                                <div class="text-4xl font-extrabold text-white glow-text" id="deploy-symbol">$?</div>
+                                <div class="text-sm text-neutral-400" id="deploy-name">Token Name</div>
+                                <div class="flex justify-center gap-3 text-xs" id="deploy-stats"></div>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-4 space-y-2">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Reasoning</div>
+                                <p class="text-xs text-neutral-300" id="deploy-reasoning"></p>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Contract</div>
+                                <code class="text-xs text-amber-400 break-all block" id="deploy-mint">—</code>
+                            </div>
+                            <div class="flex flex-col gap-3 pt-2">
+                                <a id="deploy-noxa-btn" href="https://fun.noxa.fi" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-purple-600 hover:bg-purple-500 transition-colors text-white">
+                                    Deploy via NOXA Fun →
+                                </a>
+                                <a id="deploy-uniswap-btn" href="#" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-500 transition-colors text-white">
+                                    Create Pool on Uniswap →
+                                </a>
+                                <a id="deploy-explorer-btn" href="#" target="_blank" class="block text-center py-3 px-4 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 transition-colors text-neutral-300">
+                                    View on Blockscout →
+                                </a>
+                            </div>
+                            <p class="text-[10px] text-center text-neutral-600">Connect your wallet on Robinhood Chain (4663) to deploy. Cost: ~0.01 ETH gas.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Right: Sidebar -->
@@ -633,6 +677,10 @@
                         <button onclick="approveProposal('${p.decision_id}', true, event)" class="px-3 py-1.5 bg-green-500/20 text-green-400 text-[10px] font-bold uppercase rounded-lg hover:bg-green-500/30 transition-colors">Approve</button>
                         <button onclick="approveProposal('${p.decision_id}', false, event)" class="px-3 py-1.5 bg-red-500/20 text-red-400 text-[10px] font-bold uppercase rounded-lg hover:bg-red-500/30 transition-colors">Reject</button>
                     </div>` : ''}
+                    ${p.status === 'approved' ? `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="openDeploy('${p.decision_id}')" class="px-3 py-1.5 bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase rounded-lg hover:bg-purple-500/30 transition-colors">Deploy Token</button>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -697,6 +745,9 @@
                     btn.className = btn.className.replace('hover:bg-green-500/30', '').replace('hover:bg-red-500/30', '');
                 }
                 fetchDashboard();
+                if (approved) {
+                    setTimeout(() => openDeploy(decisionId), 500);
+                }
             } catch (err) {
                 console.error('Approval error:', err);
                 if (btn) {
@@ -1017,6 +1068,60 @@
 
         fetchDashboard();
         setInterval(fetchDashboard, 5000);
+
+        /* ---- Deploy Section ---- */
+        async function openDeploy(proposalId) {
+            const section = document.getElementById('deploy-section');
+            const loading = document.getElementById('deploy-loading');
+            const content = document.getElementById('deploy-content');
+            section.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+
+            try {
+                const resp = await fetch('/api/deploy/' + proposalId);
+                if (!resp.ok) throw new Error('Not found');
+                const data = await resp.json();
+
+                document.getElementById('deploy-symbol').textContent = '$' + data.symbol;
+                document.getElementById('deploy-name').textContent = data.name + ' — ' + data.confidence.toFixed(0) + '% confidence';
+                document.getElementById('deploy-mint').textContent = data.mint || 'Not yet deployed';
+                document.getElementById('deploy-reasoning').textContent = data.reasoning || 'No reasoning';
+
+                const statsHtml = [
+                    data.score ? '<span>Score: <strong class="text-white">' + (data.score * 100).toFixed(0) + '%</strong></span>' : '',
+                    data.volume ? '<span>Vol: <strong class="text-white">$' + (data.volume / 1e6).toFixed(1) + 'M</strong></span>' : '',
+                    data.liquidity ? '<span>Liq: <strong class="text-white">$' + (data.liquidity / 1e3).toFixed(0) + 'K</strong></span>' : '',
+                    data.holders ? '<span>Holders: <strong class="text-white">' + data.holders.toLocaleString() + '</strong></span>' : '',
+                ].filter(Boolean).join('');
+                document.getElementById('deploy-stats').innerHTML = statsHtml;
+
+                document.getElementById('deploy-noxa-btn').href = data.noxa_url || 'https://fun.noxa.fi';
+                document.getElementById('deploy-uniswap-btn').href = data.uniswap_url || '#';
+                document.getElementById('deploy-explorer-btn').href = data.explorer_url || '#';
+
+                if (!data.uniswap_url) document.getElementById('deploy-uniswap-btn').classList.add('opacity-40', 'pointer-events-none');
+                if (!data.explorer_url) document.getElementById('deploy-explorer-btn').classList.add('opacity-40', 'pointer-events-none');
+
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            } catch (err) {
+                loading.innerHTML = '<p class="text-xs text-red-400">Failed to load proposal</p>';
+            }
+        }
+
+        function closeDeploy() {
+            document.getElementById('deploy-section').classList.add('hidden');
+        }
+
+        /* Auto-open deploy if URL has #deploy?id=... */
+        (function checkDeployHash() {
+            const hash = window.location.hash;
+            if (hash.startsWith('#deploy?id=')) {
+                const id = hash.replace('#deploy?id=', '');
+                if (id) setTimeout(() => openDeploy(id), 1000);
+            }
+        })();
     </script>
 </body>
 </html>

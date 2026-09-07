@@ -72,22 +72,21 @@ app.post("/api/approve/:id", async (request, reply) => {
   const { processApproval, getProposalById } = await import("./social/approval.js");
   const result = await processApproval(body);
 
-  let launchResult: unknown = null;
-  if (result.success && body.approved) {
-    try {
-      const { executeLaunch } = await import("./launch/launcher.js");
-      const entry = getProposalById(id);
-      if (entry && entry.proposal) {
-        const proposal = entry.proposal as { status: string; [key: string]: unknown };
-        proposal.status = "approved";
-        launchResult = await executeLaunch(proposal as any);
-      }
-    } catch (err) {
-      launchResult = { error: err instanceof Error ? err.message : String(err) };
+  let proposalData: unknown = null;
+  if (result.success) {
+    const entry = getProposalById(id);
+    if (entry) {
+      proposalData = {
+        decision_id: entry.decision_id,
+        proposal: entry.proposal,
+        status: entry.status,
+        deploy_url: "https://fun.noxa.fi",
+        uniswap_url: `https://app.uniswap.org/add/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73/${(entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).mint : ""}?chainId=4663`,
+      };
     }
   }
 
-  return reply.code(200).send({ ...result, launch: launchResult });
+  return reply.code(200).send({ ...result, deploy: proposalData });
 });
 
 app.post("/api/launch/execute", async (request, reply) => {
@@ -125,6 +124,45 @@ app.get("/api/config", async () => {
   } catch {
     return { error: "Config not found" };
   }
+});
+
+app.get("/api/deploy/:id", async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const { getProposalById } = await import("./social/approval.js");
+  const entry = getProposalById(id);
+  if (!entry) return reply.code(404).send({ error: "Proposal not found" });
+
+  const prop = entry.proposal as Record<string, unknown>;
+  const signal = prop?.signal as Record<string, unknown> | undefined;
+  const symbol = (prop?.symbol as string) || (signal?.symbol as string) || "?";
+  const name = (prop?.name as string) || (signal?.name as string) || symbol;
+  const mint = (signal?.mint as string) || "";
+  const confidence = ((prop?.confidence as number) || 0) * 100;
+  const platform = (prop?.platform as string) || "noxafun";
+  const reasoning = (prop?.reasoning as string) || "";
+  const score = (signal?.score as number) || 0;
+  const volume = (signal?.volume_24h as number) || 0;
+  const liquidity = (signal?.liquidity as number) || 0;
+  const holders = (signal?.holders as number) || 0;
+
+  return {
+    decision_id: entry.decision_id,
+    status: entry.status,
+    created_at: entry.created_at,
+    symbol,
+    name,
+    mint,
+    confidence,
+    platform,
+    reasoning,
+    score,
+    volume,
+    liquidity,
+    holders,
+    noxa_url: "https://fun.noxa.fi",
+    uniswap_url: mint ? `https://app.uniswap.org/add/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73/${mint}?chainId=4663` : "",
+    explorer_url: mint ? `https://robinhoodchain.blockscout.com/address/${mint}` : "",
+  };
 });
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
