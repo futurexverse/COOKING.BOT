@@ -174,23 +174,23 @@ const QA: Record<string, string> = {
 
   what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Robinhood Chain token sniper. It scans Uniswap pools, scores every token with a 6-factor algorithm + AI narrative detection, proposes launches when conditions are right, and monitors your positions 24/7 for rugs and price moves.`,
 
-  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Uniswap pools and Blockscout analytics\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via NOXA Fun with locked liquidity\n4. <b>Guard</b> - Monitors your token 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
+  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Uniswap pools and Blockscout analytics\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via PONS with locked liquidity\n4. <b>Guard</b> - Monitors your token 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
 
   score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection to rate every token on Robinhood Chain.\n\n<b>The 6 Factors:</b>\n\n1. Volume Spike (25% weight)\nMeasures volume-to-liquidity ratio. A sudden spike means traders are piling in.\n\n2. Liquidity Depth (20% weight)\nChecks if there's enough liquidity on Uniswap to actually trade. Minimum $10K required.\n\n3. 24-Hour Momentum (20% weight)\nPrice trend over the last 24 hours. Strong upward momentum scores high.\n\n4. 1-Hour Momentum (15% weight)\nShort-term action. Are buyers stepping in right now?\n\n5. Holder Growth (10% weight)\nNumber of unique holders and distribution. More holders = healthier token.\n\n6. Safety Score (10% weight)\nContract verification, owner renounced, top holder concentration.\n\n<b>Narrative Boost</b>\nGoogle Gemini AI analyzes trending themes on Robinhood Chain (AI agents, tokenized stocks, memes, DePIN). Tokens matching hot narratives get up to +15% score boost.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable (proposes a launch)\n- 45-69% = Watchlist (monitored)\n- Below 45% = Noise (ignored)`,
 
-  launch: `<b>Token Launching</b>\n\nWhen a token scores 70%+ and conditions are right:\n- AI evaluates market heat, confidence, and narrative alignment\n- Must hit 75%+ confidence to propose\n- You approve via Telegram buttons\n- Deploys via NOXA Fun (~0.01 ETH)\n- Liquidity is auto-locked — rug-proof from day one`,
+  launch: `<b>Token Launching</b>\n\nWhen a token scores 70%+ and conditions are right:\n- AI evaluates market heat, confidence, and narrative alignment\n- Must hit 75%+ confidence to propose\n- You approve via Telegram buttons\n- Deploys via PONS (~0.01 ETH)\n- Liquidity is auto-locked — rug-proof from day one`,
 
   guardian: `<b>Guardian System</b>\n\nPost-launch monitoring on Robinhood Chain:\n- Rug detection (contract owner, mint authority, supply concentration)\n- Price alerts (20%+ surges or dumps)\n- Holder milestones (100, 500, 1K, 5K, 10K)\n- Stop-loss (-30%) and take-profit (+100%)\n- Contract safety checks via Blockscout\n- Telegram alerts in real-time`,
 
-  narrative: `<b>AI Narrative Detection</b>\n\nCOOKING uses Google Gemini AI to identify trending themes on Robinhood Chain:\n\n- Scans new token launches on NOXA Fun for common themes\n- Analyzes social data from LunarCrush for rising narratives\n- Detects meme trends, sector rotations, and hype cycles\n\nTokens matching hot narratives get a score boost (up to +15%), making them more likely to be proposed for launch.\n\nExamples: AI agents, tokenized stocks, political memes, DePIN, gaming tokens.\n\nNarratives refresh every 5 minutes automatically.`,
+  narrative: `<b>AI Narrative Detection</b>\n\nCOOKING uses Qwen AI on Groq to identify trending themes across all chains:\n\n- Scans trending tokens from Dexscreener across Solana, Ethereum, Base, and more\n- AI analyzes token clusters to identify hot narratives\n- Detects meme trends, sector rotations, and hype cycles\n\nTokens matching hot narratives get a score boost (up to +15%), making them more likely to be proposed for launch.\n\nExamples: AI agents, tokenized stocks, political memes, DePIN, gaming tokens.\n\nNarratives refresh every 5 minutes automatically.`,
 
-  cost: `<b>Costs</b>\n\n- NOXA Fun launch: ~0.01 ETH (gas only)\n- Guardian monitoring: free\n- Narrative detection: free (Google Gemini free tier)\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
+  cost: `<b>Costs</b>\n\n- PONS launch: ~0.01 ETH (gas only)\n- Guardian monitoring: free\n- Narrative detection: free (Groq free tier)\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
 
   approve: `<b>Approving a Launch</b>\n\nWhen a new proposal comes in:\n- Tap the Approve or Reject button\n- Or send /approve &lt;decision_id&gt;\n- Or use the API: POST /api/approve/&lt;id&gt;\n- Approval window: 5 minutes`,
 
   heat: `<b>Market Heat</b>\n\nA gauge of overall market activity on Robinhood Chain:\n- Number of candidate tokens found on Uniswap\n- Top scores among candidates\n- Scale: Cold (0-20%) -> Cool -> Warm -> Hot (70%+)\n\nHigher heat = more opportunity`,
 
-  chain: `<b>Robinhood Chain</b>\n\n- Ethereum L2 built on Arbitrum\n- ~100ms block times, sub-cent gas fees\n- Uniswap V2/V3/V4 for trading\n- NOXA Fun for token launches with locked LP\n- Blockscout for analytics and safety\n- Chain ID 4663`,
+  chain: `<b>Robinhood Chain</b>\n\n- Ethereum L2 built on Arbitrum\n- ~100ms block times, sub-cent gas fees\n- Uniswap V2/V3/V4 for trading\n- PONS for token launches with locked LP\n- Blockscout for analytics and safety\n- Chain ID 4663`,
 
   help: `<b>COOKING Commands</b>\n\n/start - Welcome message\n/status - System status\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/narrative - AI narrative detection\n/config - Current thresholds\n/costs - Launch costs\n/heat - Market heat explained\n/help - This message`,
 };
@@ -313,7 +313,7 @@ function handleConfig(): string {
     `Strategy: cooking_v1`,
     `Chain: Robinhood (4663)`,
     `DEX: Uniswap`,
-    `Launch: NOXA Fun`,
+    `Launch: PONS`,
     `Guardian: Active`,
   ].join("\n");
 }
@@ -458,9 +458,9 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
         const mint = (signal?.mint as string) || "";
         const name = (prop?.name as string) || (signal?.name as string) || symbol;
         const confidence = ((prop?.confidence as number) || 0) * 100;
-        const platform = (prop?.platform as string) || "noxafun";
+        const platform = (prop?.platform as string) || "pons";
 
-        const noxaUrl = `https://fun.noxa.fi`;
+        const ponsUrl = `https://www.ponsfamily.com/launchpad`;
         const dexscreenerUrl = `https://dexscreener.com/robinhood/${mint}`;
         const dashboardUrl = `https://cookingbot-production-bcf3.up.railway.app/#deploy`;
         const explorerUrl = `https://robinhoodchain.blockscout.com/address/${mint}`;
@@ -478,7 +478,7 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
 
         const deployKeyboard = [
           [
-            { text: "Deploy via NOXA Fun", url: noxaUrl },
+            { text: "Deploy via PONS", url: ponsUrl },
           ],
           [
             { text: "View on Dexscreener", url: dexscreenerUrl },

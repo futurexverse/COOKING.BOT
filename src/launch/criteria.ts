@@ -16,7 +16,7 @@ function calculateConfidence(
   recentLaunches: number
 ): {
   confidence: number;
-  platform: "pumpfun" | "raydium" | "noxafun" | "uniswap";
+  platform: "pumpfun" | "raydium" | "pons" | "uniswap";
   reasoning: string;
   estimated_cost_eth: number;
   should_launch: boolean;
@@ -92,7 +92,7 @@ function calculateConfidence(
 
   confidence = Math.max(0, Math.min(1, confidence));
 
-  const platform = "noxafun";
+  const platform = "pons";
   const estimatedCost = 0.01;
 
   const sourceChain = signal.chain || "unknown";
@@ -129,7 +129,7 @@ export async function evaluateLaunchConditions(
       decision_id: "skip",
       symbol: signal.symbol,
       name: signal.name || "Unknown",
-      platform: "noxafun",
+      platform: "pons",
       confidence: 0,
       reasoning: "Skipped — already has a pending proposal",
       estimated_cost_eth: 0.01,
@@ -145,7 +145,7 @@ export async function evaluateLaunchConditions(
       decision_id: "cooldown",
       symbol: signal.symbol,
       name: signal.name || "Unknown",
-      platform: "noxafun",
+      platform: "pons",
       confidence: 0,
       reasoning: "Skipped — on 1-hour cooldown after recent proposal",
       estimated_cost_eth: 0.01,

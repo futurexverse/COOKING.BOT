@@ -80,7 +80,7 @@ app.post("/api/approve/:id", async (request, reply) => {
         decision_id: entry.decision_id,
         proposal: entry.proposal,
         status: entry.status,
-        deploy_url: "https://fun.noxa.fi",
+        deploy_url: "https://www.ponsfamily.com/launchpad",
         dexscreener_url: `https://dexscreener.com/robinhood/${(entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).mint : ""}`,
       };
     }
@@ -153,7 +153,7 @@ app.get("/api/deploy/:id", async (request, reply) => {
   const name = (prop?.name as string) || (signal?.name as string) || symbol;
   const mint = (signal?.mint as string) || "";
   const confidence = ((prop?.confidence as number) || 0) * 100;
-  const platform = (prop?.platform as string) || "noxafun";
+  const platform = (prop?.platform as string) || "pons";
   const reasoning = (prop?.reasoning as string) || "";
   const score = (signal?.score as number) || 0;
   const volume = (signal?.volume_24h as number) || 0;
@@ -174,7 +174,7 @@ app.get("/api/deploy/:id", async (request, reply) => {
     volume,
     liquidity,
     holders,
-    noxa_url: "https://fun.noxa.fi",
+    pons_url: "https://www.ponsfamily.com/launchpad",
     dexscreener_url: mint ? `https://dexscreener.com/robinhood/${mint}` : "",
     explorer_url: mint ? `https://robinhoodchain.blockscout.com/address/${mint}` : "",
   };

@@ -56,7 +56,7 @@ async function launchViaNofxa(
     symbol: proposal.symbol,
     name: proposal.name,
     mint: result.token_address,
-    platform: "noxafun",
+    platform: "pons",
     tx_signature: result.tx_hash || "",
     cost_eth: proposal.estimated_cost_eth,
     launched_at: Date.now(),
