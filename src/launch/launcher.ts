@@ -57,8 +57,6 @@ export function getTradeHistory(): TradeRecord[] {
 loadLaunches();
 loadTrades();
 
-const AUTO_BUY_ETH = parseFloat(process.env.AUTO_BUY_ETH || "0.005");
-
 async function launchViaNofxa(
   proposal: LaunchProposal
 ): Promise<LaunchRecord> {
@@ -90,7 +88,7 @@ async function launchViaNofxa(
     tx_signature: result.tx_hash || "",
     cost_eth: proposal.estimated_cost_eth,
     launched_at: Date.now(),
-    guardian_active: true,
+    guardian_active: false,
     initial_price: 0,
     initial_liquidity: 0,
   };
@@ -98,42 +96,17 @@ async function launchViaNofxa(
   activeLaunches.push(record);
   saveLaunches();
 
-  if (AUTO_BUY_ETH > 0) {
-    try {
-      const { buyToken } = await import("../trading/buy.js");
-      console.log(`[Launcher] Auto-buying ${proposal.symbol} with ${AUTO_BUY_ETH} ETH...`);
-      const buyResult = await buyToken(result.token_address, AUTO_BUY_ETH.toString());
-      if (buyResult.success) {
-        console.log(`[Launcher] Auto-buy successful: ${buyResult.txHash}`);
-        addTrade({
-          txHash: buyResult.txHash || "",
-          type: "buy",
-          tokenAddress: result.token_address,
-          tokenSymbol: proposal.symbol,
-          amountIn: AUTO_BUY_ETH.toString(),
-          amountOut: buyResult.amountOut || "0",
-          ethSpent: AUTO_BUY_ETH.toString(),
-          timestamp: Date.now(),
-          status: "success",
-        });
-      } else {
-        console.error(`[Launcher] Auto-buy failed: ${buyResult.error}`);
-        addTrade({
-          txHash: "",
-          type: "buy",
-          tokenAddress: result.token_address,
-          tokenSymbol: proposal.symbol,
-          amountIn: AUTO_BUY_ETH.toString(),
-          amountOut: "0",
-          ethSpent: AUTO_BUY_ETH.toString(),
-          timestamp: Date.now(),
-          status: "failed",
-          error: buyResult.error,
-        });
-      }
-    } catch (err) {
-      console.error(`[Launcher] Auto-buy error:`, err);
-    }
+  // Send Telegram confirmation for buy + guardian
+  try {
+    const { sendLaunchBuyConfirmation } = await import("../social/telegram-bot.js");
+    await sendLaunchBuyConfirmation({
+      symbol: proposal.symbol,
+      tokenAddress: result.token_address,
+      txHash: result.tx_hash || "",
+      ethAmount: parseFloat(process.env.AUTO_BUY_ETH || "0.005"),
+    });
+  } catch (err) {
+    console.error("[Launcher] Failed to send Telegram confirmation:", err);
   }
 
   return record;

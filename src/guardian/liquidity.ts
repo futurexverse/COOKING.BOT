@@ -12,7 +12,7 @@ export interface LpPosition {
 }
 
 export interface LpAction {
-  type: "stop_loss" | "take_profit" | "trailing_stop" | "manual";
+  type: "stop_loss" | "take_profit" | "trailing_stop" | "manual" | "emergency";
   mint: string;
   price: number;
   pnl_pct: number;
@@ -45,12 +45,14 @@ export function registerPosition(
     trailing_stop_pct: trailingPct,
     highest_price: entryPrice,
   });
+
+  console.log(`[Liquidity] Registered position: $${symbol} at ${entryPrice} ETH`);
 }
 
 export function checkLpExitConditions(
   mint: string,
   currentPrice: number
-): { should_exit: boolean; reason?: string; pnl_pct: number } {
+): { should_exit: boolean; reason?: string; pnl_pct: number; exit_type?: string } {
   const position = positions.get(mint);
   if (!position) {
     return { should_exit: false, pnl_pct: 0 };
@@ -63,22 +65,37 @@ export function checkLpExitConditions(
     position.highest_price = currentPrice;
   }
 
+  // Emergency exit: >50% drop - auto-sell without confirmation
+  if (pnlPct <= -50) {
+    return {
+      should_exit: true,
+      reason: `EMERGENCY: Price dropped ${pnlPct.toFixed(1)}% — auto-selling`,
+      pnl_pct: pnlPct,
+      exit_type: "emergency",
+    };
+  }
+
+  // Stop loss: requires confirmation
   if (pnlPct <= position.stop_loss_pct) {
     return {
       should_exit: true,
       reason: `Stop loss triggered: ${pnlPct.toFixed(1)}% (threshold: ${position.stop_loss_pct}%)`,
       pnl_pct: pnlPct,
+      exit_type: "stop_loss",
     };
   }
 
+  // Take profit: requires confirmation
   if (pnlPct >= position.take_profit_pct) {
     return {
       should_exit: true,
       reason: `Take profit triggered: ${pnlPct.toFixed(1)}% (threshold: ${position.take_profit_pct}%)`,
       pnl_pct: pnlPct,
+      exit_type: "take_profit",
     };
   }
 
+  // Trailing stop: requires confirmation
   if (
     position.trailing_stop_enabled &&
     position.highest_price > position.entry_price
@@ -94,6 +111,7 @@ export function checkLpExitConditions(
         should_exit: true,
         reason: `Trailing stop triggered: peaked at +${peakPnl.toFixed(1)}%, now at +${pnlPct.toFixed(1)}%`,
         pnl_pct: pnlPct,
+        exit_type: "trailing_stop",
       };
     }
   }
@@ -102,7 +120,8 @@ export function checkLpExitConditions(
 }
 
 export async function executeSell(
-  mint: string
+  mint: string,
+  exitType: string = "manual"
 ): Promise<LpAction | null> {
   const position = positions.get(mint);
   if (!position) return null;
@@ -111,7 +130,7 @@ export async function executeSell(
     const { sellToken } = await import("../trading/sell.js");
     const { addTrade } = await import("../launch/launcher.js");
 
-    console.log(`[Liquidity] Executing real sell for ${mint}...`);
+    console.log(`[Liquidity] Executing sell for ${mint} (type: ${exitType})...`);
     const result = await sellToken(mint, 100);
 
     if (result.success) {
@@ -119,6 +138,7 @@ export async function executeSell(
         txHash: result.txHash || "",
         type: "sell",
         tokenAddress: mint,
+        tokenSymbol: position.symbol,
         amountIn: result.amountIn || "0",
         amountOut: result.amountOut || "0",
         ethReceived: result.amountOut || "0",
@@ -126,13 +146,19 @@ export async function executeSell(
         status: "success",
       });
 
+      const pnlPct =
+        ((0 - position.entry_price) / position.entry_price) * 100;
+
       positions.delete(mint);
+      console.log(`[Liquidity] Sell successful for ${mint}: ${result.amountOut} ETH`);
+
       return {
-        type: "stop_loss",
+        type: exitType as LpAction["type"],
         mint,
         price: position.entry_price,
-        pnl_pct: 0,
+        pnl_pct: pnlPct,
         timestamp: Date.now(),
+        tx_hash: result.txHash,
       };
     } else {
       console.error(`[Liquidity] Sell failed: ${result.error}`);
@@ -150,4 +176,8 @@ export function getPosition(mint: string): LpPosition | undefined {
 
 export function getAllPositions(): LpPosition[] {
   return Array.from(positions.values());
+}
+
+export function removePosition(mint: string): boolean {
+  return positions.delete(mint);
 }

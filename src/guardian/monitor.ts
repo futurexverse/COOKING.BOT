@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { checkTokenSafety, fetchTokenHolders } from "../market/sources/blockscout.js";
 import { getTokenPrice } from "../market/sources/uniswap.js";
+import { checkLpExitConditions, getPosition } from "./liquidity.js";
 
 const DATA_DIR = process.env.ORACLE_DATA_DIR || "data";
 const GUARDIAN_FILE = join(DATA_DIR, "guardian_state.json");
@@ -75,7 +76,7 @@ export async function runGuardianCycle(
 ): Promise<{
   alerts: Array<{ type: string; message: string; timestamp: number; severity: "info" | "warning" | "critical" }>;
   performanceAlerts: Array<{ type: string; message: string; timestamp: number; severity: "info" | "warning" | "critical" }>;
-  lpAction: { should_exit: boolean; reason: string };
+  lpAction: { should_exit: boolean; reason: string; exit_type?: string; pnl_pct?: number };
   snapshot: { price: number | null; holders: number | null; timestamp: number };
 }> {
   const entry = guardians.get(launch.mint);
@@ -93,6 +94,7 @@ export async function runGuardianCycle(
   const alerts: Array<{ type: string; message: string; timestamp: number; severity: "info" | "warning" | "critical" }> = [];
   const performanceAlerts: Array<{ type: string; message: string; timestamp: number; severity: "info" | "warning" | "critical" }> = [];
 
+  // Safety checks
   try {
     const safety = await checkTokenSafety(launch.mint);
     if (safety) {
@@ -121,6 +123,7 @@ export async function runGuardianCycle(
     console.error(`[Guardian] Safety check error for $${launch.symbol}:`, err);
   }
 
+  // Price check
   let currentPrice: number | null = null;
   try {
     currentPrice = await getTokenPrice(launch.mint);
@@ -128,6 +131,7 @@ export async function runGuardianCycle(
     /* ignore */
   }
 
+  // Holder check
   let holderCount: number | null = null;
   try {
     const holders = await fetchTokenHolders(launch.mint);
@@ -153,22 +157,23 @@ export async function runGuardianCycle(
     console.error(`[Guardian] Holder check error for $${launch.symbol}:`, err);
   }
 
+  // Price alerts
   if (currentPrice && entry.initial_price) {
     const priceChange = ((currentPrice - entry.initial_price) / entry.initial_price) * 100;
-    if (priceChange <= -30) {
+    if (priceChange <= -20) {
       const alert = {
-        type: "stop_loss",
-        message: `$${launch.symbol}: Price dropped ${priceChange.toFixed(1)}% - stop loss triggered`,
+        type: "price_drop",
+        message: `$${launch.symbol}: Price dropped ${priceChange.toFixed(1)}%`,
         timestamp: Date.now(),
-        severity: "critical" as const,
+        severity: "warning" as const,
       };
       alerts.push(alert);
       entry.alerts.push(alert);
     }
-    if (priceChange >= 100) {
+    if (priceChange >= 20) {
       const alert = {
-        type: "take_profit",
-        message: `$${launch.symbol}: Price up ${priceChange.toFixed(1)}% - take profit hit`,
+        type: "price_surge",
+        message: `$${launch.symbol}: Price surged +${priceChange.toFixed(1)}%`,
         timestamp: Date.now(),
         severity: "info" as const,
       };
@@ -177,6 +182,40 @@ export async function runGuardianCycle(
     }
   }
 
+  // LP exit conditions (from liquidity.ts)
+  let lpAction = { should_exit: false, reason: "" as string | undefined, exit_type: undefined as string | undefined, pnl_pct: 0 };
+  if (currentPrice) {
+    const position = getPosition(launch.mint);
+    if (position) {
+      const exitCheck = checkLpExitConditions(launch.mint, currentPrice);
+      if (exitCheck.should_exit) {
+        lpAction = {
+          should_exit: true,
+          reason: exitCheck.reason,
+          exit_type: exitCheck.exit_type,
+          pnl_pct: exitCheck.pnl_pct,
+        };
+
+        const alertType = exitCheck.exit_type || "exit";
+        const alertSeverity = exitCheck.exit_type === "emergency" ? "critical" : "warning";
+        const alert = {
+          type: alertType,
+          message: `$${launch.symbol}: ${exitCheck.reason}`,
+          timestamp: Date.now(),
+          severity: alertSeverity as "info" | "warning" | "critical",
+        };
+        alerts.push(alert);
+        entry.alerts.push(alert);
+      } else {
+        // Update highest price in position
+        if (currentPrice > position.highest_price) {
+          position.highest_price = currentPrice;
+        }
+      }
+    }
+  }
+
+  // Snapshot
   const snapshot = {
     price: currentPrice,
     holders: holderCount,
@@ -184,6 +223,7 @@ export async function runGuardianCycle(
   };
   entry.last_snapshot = snapshot;
 
+  // Trim alerts
   if (entry.alerts.length > 100) {
     entry.alerts = entry.alerts.slice(-50);
   }
@@ -192,7 +232,12 @@ export async function runGuardianCycle(
   return {
     alerts,
     performanceAlerts,
-    lpAction: { should_exit: false, reason: "" },
+    lpAction: {
+      should_exit: lpAction.should_exit,
+      reason: lpAction.reason || "",
+      exit_type: lpAction.exit_type,
+      pnl_pct: lpAction.pnl_pct,
+    },
     snapshot,
   };
 }

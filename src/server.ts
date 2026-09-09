@@ -268,6 +268,16 @@ try {
 
   setInterval(runScanAndPropose, SCAN_INTERVAL);
   console.log(`[Server] Auto-scan every ${SCAN_INTERVAL / 1000}s`);
+
+  // Snipe scanner: every 20 minutes
+  const SNIPE_INTERVAL = parseInt(process.env.SNIPE_SCAN_INTERVAL_MS || "1200000");
+  const { runSnipeScanAndAlert } = await import("./market/snipe-scanner.js");
+  setTimeout(() => {
+    runSnipeScanAndAlert().catch(() => {});
+    setInterval(runSnipeScanAndAlert, SNIPE_INTERVAL);
+    console.log(`[Server] Snipe scanner every ${SNIPE_INTERVAL / 1000}s`);
+  }, 30000); // First scan after 30 seconds
+
 } catch (err) {
   app.log.error(err);
   process.exit(1);
