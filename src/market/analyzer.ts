@@ -82,6 +82,7 @@ export async function analyzeMarket(
       sendNarrativeToTelegram({
         trending_narratives: narrativeAnalysis.trending_narratives,
         theme_scores: narrativeAnalysis.theme_scores,
+        tokens_per_narrative: narrativeAnalysis.tokens_per_narrative,
         reasoning: narrativeAnalysis.reasoning,
       }).catch(() => {});
     }

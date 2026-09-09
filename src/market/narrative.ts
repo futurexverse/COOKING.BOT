@@ -1,24 +1,34 @@
 import { fetchUniswapTopPools } from "./sources/uniswap.js";
-import { analyzeNarrative, type NarrativeAnalysis } from "./sources/openai.js";
+import { analyzeNarrative, type NarrativeAnalysis, type NarrativeToken } from "./sources/openai.js";
 
 let cachedNarratives: NarrativeAnalysis | null = null;
 let lastNarrativeFetch = 0;
 const NARRATIVE_CACHE_TTL = 300000;
 
-export type { NarrativeAnalysis };
+// Track recent narratives to prevent repetition
+const recentNarratives: string[] = [];
+const MAX_RECENT = 15; // Remember last 15 narratives
+
+export type { NarrativeAnalysis, NarrativeToken };
 
 const NARRATIVE_KEYWORDS: Record<string, string[]> = {
-  "AI agents": ["ai", "agent", "neural", "gpt", "llm", "openai", "anthropic", "claude", "gemini", "autonomous", "machine learning", "deep learning"],
-  "PolitiFi": ["trump", "biden", "maga", "politi", "president", "election", "vote", "democrat", "republican", "congress", "senate", "white house"],
-  "Cat coins": ["cat", "kitty", "kitten", "meow", "nyan", "feline", "whiskers", "purr", "tabby", "siamese"],
-  "Dog coins": ["dog", "doge", "shib", "puppy", "woof", "bark", "canine", "poodle", "retriever", "husky"],
-  "RWA tokenization": ["rwa", "tokenized", "real world", "real-world", "asset", "treasury", "bond", "stock", "equity", "commodity"],
-  "DePIN": ["depin", "decentralized infrastructure", "iot", "sensor", "network", "node", "wireless", "5g", "helium"],
-  "Political memes": ["political", "politi", "meme", "satire", "joke", "funny", "viral"],
-  "Gaming": ["game", "gaming", "play", "p2e", "metaverse", "virtual", "vr", "ar", "gamer"],
-  "NFT": ["nft", "jpeg", "collectible", "art", "pfp", "bored ape", "crypto punk"],
-  "DeFi": ["defi", "yield", "farming", "staking", "liquidity", "swap", "dex", "amm", "lending"],
-  "Meme": ["meme", "doge", "pepe", "wojak", "feels", "chad", "sigma", "grug"],
+  "AI agents": ["ai", "agent", "neural", "gpt", "llm", "openai", "anthropic", "claude", "autonomous", "machine learning"],
+  "AI trading bots": ["trading bot", "trading ai", "auto trade", "quant", "algorithmic"],
+  "AI companions": ["companion", "virtual girlfriend", "ai friend", "chatbot", "character ai"],
+  "PolitiFi": ["trump", "biden", "maga", "politi", "president", "election", "vote", "democrat", "republican"],
+  "Cat coins": ["cat", "kitty", "kitten", "meow", "nyan", "feline", "whiskers", "purr"],
+  "Dog coins": ["dog", "doge", "shib", "puppy", "woof", "bark", "canine"],
+  "RWA tokenization": ["rwa", "tokenized", "real world", "asset", "treasury", "bond", "stock"],
+  "DePIN": ["depin", "decentralized infrastructure", "iot", "sensor", "network", "node", "wireless"],
+  "Gaming": ["game", "gaming", "play", "p2e", "metaverse", "virtual", "vr", "ar"],
+  "DeFi": ["defi", "yield", "farming", "staking", "liquidity", "swap", "dex", "lending"],
+  "SocialFi": ["social", "socialfi", "friend", "network", "community", "dao"],
+  "Restaking": ["restaking", "lrt", "liquid restaking", "eigenlayer"],
+  "Meme coins": ["meme", "pepe", "wojak", "chad", "sigma", "grug", "feels"],
+  "Political memes": ["political", "politi", "meme", "satire", "joke", "funny"],
+  "Animal coins": ["animal", "bear", "bull", "frog", "shark", "whale", "ape"],
+  "NFT": ["nft", "jpeg", "collectible", "art", "pfp"],
+  "Layer 2": ["l2", "layer 2", "rollup", "optimism", "arbitrum", "zk"],
 };
 
 export async function refreshNarratives(): Promise<NarrativeAnalysis> {
@@ -27,16 +37,16 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     return cachedNarratives;
   }
 
-  console.log("[Narrative] Fetching trending tokens from Dexscreener (all chains)...");
+  console.log("[Narrative] Fetching trending mid-cap tokens from Dexscreener...");
 
   let tokens: Awaited<ReturnType<typeof fetchUniswapTopPools>> = [];
   try {
-    tokens = await fetchUniswapTopPools(30);
+    tokens = await fetchUniswapTopPools(40); // Fetch more to have good mid-cap selection
   } catch (err) {
     console.error("[Narrative] Dexscreener fetch failed:", err);
   }
 
-  console.log(`[Narrative] Got ${tokens.length} tokens from Dexscreener`);
+  console.log(`[Narrative] Got ${tokens.length} mid-cap tokens from Dexscreener`);
 
   if (tokens.length === 0) {
     console.log("[Narrative] No token data available, using cached or fallback");
@@ -44,9 +54,24 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     return fallbackAnalysis();
   }
 
-  const tokenSummary = tokens.slice(0, 20).map((t) => ({
+  // Filter to mid-cap only ($100K - $10M) as backup
+  const midCapTokens = tokens.filter(t => {
+    const mc = t.market_cap || 0;
+    return mc >= 100000 && mc <= 10000000;
+  });
+
+  console.log(`[Narrative] ${midCapTokens.length} mid-cap tokens after filter`);
+
+  if (midCapTokens.length === 0) {
+    console.log("[Narrative] No mid-cap tokens, using all tokens");
+  }
+
+  const tokensForAnalysis = midCapTokens.length > 0 ? midCapTokens : tokens;
+
+  const tokenSummary = tokensForAnalysis.slice(0, 30).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
+    address: t.mint || "",
     chain: t.chain || "unknown",
     volume_24h: t.volume_24h || 0,
     market_cap: t.market_cap || 0,
@@ -54,15 +79,36 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     change_24h: t.change_24h || 0,
   }));
 
+  // Sort by volume for better analysis
   tokenSummary.sort((a, b) => b.volume_24h - a.volume_24h);
 
+  // Pass recent narratives to Groq so it avoids repetition
+  const recentContext = recentNarratives.length > 0
+    ? `\n\nRECENT NARRATIVES (avoid these, they were already covered): ${recentNarratives.join(", ")}`
+    : "";
+
   const analysis = await analyzeNarrative(tokenSummary);
+
+  // Add recent narratives to context for next cycle
+  for (const narrative of analysis.trending_narratives) {
+    if (!recentNarratives.includes(narrative)) {
+      recentNarratives.push(narrative);
+    }
+  }
+  // Trim recent narratives
+  while (recentNarratives.length > MAX_RECENT) {
+    recentNarratives.shift();
+  }
 
   cachedNarratives = analysis;
   lastNarrativeFetch = now;
 
   console.log(`[Narrative] Trending: ${analysis.trending_narratives.join(", ")}`);
   console.log(`[Narrative] Scores: ${JSON.stringify(analysis.theme_scores)}`);
+  console.log(`[Narrative] Tokens per narrative:`);
+  for (const [narrative, tokens] of Object.entries(analysis.tokens_per_narrative)) {
+    console.log(`  ${narrative}: ${tokens.map(t => `${t.symbol} (${t.address.slice(0, 8)}...)`).join(", ")}`);
+  }
   console.log(`[Narrative] Reasoning: ${analysis.reasoning}`);
 
   return analysis;
@@ -118,6 +164,7 @@ function fallbackAnalysis(): NarrativeAnalysis {
   return {
     trending_narratives: ["AI agents", "PolitiFi", "Cat coins", "RWA tokenization", "DePIN"],
     theme_scores: { "AI agents": 75, "PolitiFi": 65, "Cat coins": 60, "RWA tokenization": 50, "DePIN": 45 },
+    tokens_per_narrative: {},
     reasoning: "Default analysis — live data unavailable.",
   };
 }

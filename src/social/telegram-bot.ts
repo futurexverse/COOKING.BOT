@@ -1026,6 +1026,15 @@ export async function sendAlertToTelegram(text: string): Promise<void> {
 export async function sendNarrativeToTelegram(narrative: {
   trending_narratives: string[];
   theme_scores: Record<string, number>;
+  tokens_per_narrative: Record<string, Array<{
+    symbol: string;
+    address: string;
+    chain: string;
+    market_cap: number;
+    volume_24h: number;
+    change_24h: number;
+    dexscreener_url: string;
+  }>>;
   reasoning: string;
 }): Promise<void> {
   if (!getBotToken()) return;
@@ -1035,28 +1044,68 @@ export async function sendNarrativeToTelegram(narrative: {
 
   const narratives = narrative.trending_narratives || [];
   const scores = narrative.theme_scores || {};
+  const tokensPerNarrative = narrative.tokens_per_narrative || {};
   const reasoning = narrative.reasoning || "";
 
   const lines = [
     `<b>🧠 NARRATIVE INTELLIGENCE</b>`,
     ``,
-    `<b>Trending Narratives:</b>`,
+    `<b>Mid-Cap Opportunities ($100K-$10M)</b>`,
+    ``,
   ];
+
+  const inlineKeyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
 
   for (const n of narratives) {
     const score = scores[n] || 50;
     const bar = score >= 70 ? "🔥" : score >= 50 ? "🟡" : "⚪";
     lines.push(`${bar} <b>${n}</b> — ${score}/100`);
+
+    const tokens = tokensPerNarrative[n] || [];
+    if (tokens.length > 0) {
+      for (const token of tokens.slice(0, 3)) {
+        const mcStr = token.market_cap >= 1000000
+          ? `$${(token.market_cap / 1000000).toFixed(1)}M`
+          : `$${(token.market_cap / 1000).toFixed(0)}K`;
+        const changeStr = token.change_24h > 0 ? `+${token.change_24h.toFixed(1)}%` : `${token.change_24h.toFixed(1)}%`;
+
+        lines.push(`  <b>${token.symbol}</b> (<code>${token.address}</code>)`);
+        lines.push(`  MC: ${mcStr} | Vol: $${(token.volume_24h / 1000).toFixed(0)}K | ${changeStr}`);
+        lines.push(`  <a href="${token.dexscreener_url}">Dexscreener</a>`);
+      }
+
+      // Add trade buttons for top tokens
+      const topTokens = tokens.slice(0, 2);
+      if (topTokens.length > 0) {
+        const row = topTokens.map(t => ({
+          text: `Trade $${t.symbol}`,
+          url: `https://cookingbot-production-bcf3.up.railway.app/trade?token=${t.address}&symbol=${t.symbol}`,
+        }));
+        inlineKeyboard.push(row);
+      }
+    } else {
+      lines.push(`  No tokens identified for this narrative`);
+    }
+
+    lines.push(``);
   }
 
   if (reasoning) {
-    lines.push(``, `<i>${reasoning}</i>`);
+    lines.push(`<i>${reasoning}</i>`);
   }
+
+  // Add refresh button
+  inlineKeyboard.push([
+    { text: "Refresh Narratives", callback_data: "q:narrative" },
+  ]);
 
   const text = lines.join("\n");
 
   for (const chatId of allChatIds) {
-    await sendMessage(chatId, text);
+    await sendMessage(chatId, text, {
+      reply_markup: { inline_keyboard: inlineKeyboard },
+      disable_web_page_preview: true,
+    });
   }
 
   console.log(`[Telegram] Narrative analysis sent to ${allChatIds.length} chats`);
