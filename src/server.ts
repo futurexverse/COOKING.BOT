@@ -31,6 +31,11 @@ app.get("/", async (_request, reply) => {
   return reply.type("text/html").send(html);
 });
 
+app.get("/trade", async (_request, reply) => {
+  const html = readFileSync(join(ROOT_DIR, "index.html"), "utf-8");
+  return reply.type("text/html").send(html);
+});
+
 app.get("/health", async () => {
   return { status: "ok", service: "cooking", timestamp: Date.now() };
 });

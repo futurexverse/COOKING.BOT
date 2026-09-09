@@ -1079,6 +1079,7 @@ export async function sendSnipeAlertToTelegram(token: {
 
   const changeStr = token.change_24h ? `${token.change_24h > 0 ? "+" : ""}${token.change_24h.toFixed(1)}%` : "?";
   const priceStr = token.price ? `$${token.price.toFixed(6)}` : "?";
+  const dashboardUrl = `https://cookingbot-production-bcf3.up.railway.app/trade?token=${token.address}&symbol=${token.symbol}`;
 
   const text = [
     `🎯 <b>SNIPING OPPORTUNITY</b>`,
@@ -1090,17 +1091,23 @@ export async function sendSnipeAlertToTelegram(token: {
     `Liquidity: $${(token.liquidity || 0).toLocaleString()}`,
     `Holders: ${(token.holders || 0).toLocaleString()}`,
     ``,
+    `<b>To trade:</b>`,
+    `1. Tap "Trade on Dashboard" below`,
+    `2. Deposit ETH to your wallet address shown`,
+    `3. Enter amount and confirm the trade`,
+    ``,
     `<a href="https://dexscreener.com/robinhood/${token.address}">View on Dexscreener</a>`,
     `<a href="https://robinhoodchain.blockscout.com/address/${token.address}">View on Blockscout</a>`,
   ].join("\n");
 
   const inlineKeyboard = [
     [
-      { text: "Buy 0.001 ETH", callback_data: `quick_buy:${token.address}:0.001` },
-      { text: "Buy 0.005 ETH", callback_data: `quick_buy:${token.address}:0.005` },
+      { text: "Trade on Dashboard", url: dashboardUrl },
     ],
     [
-      { text: "Buy 0.01 ETH", callback_data: `quick_buy:${token.address}:0.01` },
+      { text: "View on Dexscreener", url: `https://dexscreener.com/robinhood/${token.address}` },
+    ],
+    [
       { text: "Ignore", callback_data: `skip_action` },
     ],
   ];
