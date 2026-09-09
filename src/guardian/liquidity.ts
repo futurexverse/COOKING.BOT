@@ -107,17 +107,41 @@ export async function executeSell(
   const position = positions.get(mint);
   if (!position) return null;
 
-  console.log(`[Liquidity] Sell for ${mint} would execute on EVM (pending wallet integration)`);
+  try {
+    const { sellToken } = await import("../trading/sell.js");
+    const { addTrade } = await import("../launch/launcher.js");
 
-  positions.delete(mint);
+    console.log(`[Liquidity] Executing real sell for ${mint}...`);
+    const result = await sellToken(mint, 100);
 
-  return {
-    type: "stop_loss",
-    mint,
-    price: position.entry_price,
-    pnl_pct: 0,
-    timestamp: Date.now(),
-  };
+    if (result.success) {
+      addTrade({
+        txHash: result.txHash || "",
+        type: "sell",
+        tokenAddress: mint,
+        amountIn: result.amountIn || "0",
+        amountOut: result.amountOut || "0",
+        ethReceived: result.amountOut || "0",
+        timestamp: Date.now(),
+        status: "success",
+      });
+
+      positions.delete(mint);
+      return {
+        type: "stop_loss",
+        mint,
+        price: position.entry_price,
+        pnl_pct: 0,
+        timestamp: Date.now(),
+      };
+    } else {
+      console.error(`[Liquidity] Sell failed: ${result.error}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`[Liquidity] Sell error:`, err);
+    return null;
+  }
 }
 
 export function getPosition(mint: string): LpPosition | undefined {

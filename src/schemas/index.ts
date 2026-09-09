@@ -176,3 +176,19 @@ export const DashboardResponseSchema = z.object({
     })
     .optional(),
 });
+
+export const TradeRecordSchema = z.object({
+  txHash: z.string(),
+  type: z.enum(["buy", "sell"]),
+  tokenAddress: z.string(),
+  tokenSymbol: z.string().optional(),
+  amountIn: z.string(),
+  amountOut: z.string(),
+  ethSpent: z.string().optional(),
+  ethReceived: z.string().optional(),
+  timestamp: z.number(),
+  status: z.enum(["success", "failed"]),
+  error: z.string().optional(),
+});
+
+export type TradeRecord = z.infer<typeof TradeRecordSchema>;

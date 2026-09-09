@@ -168,15 +168,15 @@ async function getBotInfo(): Promise<{ id: number; username: string } | null> {
 }
 
 const QA: Record<string, string> = {
-  greet: `<b>Hey! Welcome to COOKING.</b>\n\nI'm your autonomous Robinhood Chain token sniper. I scan Uniswap pools, score tokens with AI, propose launches, and guard your positions after deployment — all on autopilot.\n\n<b>Dashboard:</b> https://cookingbot-production-bcf3.up.railway.app\n\nThe dashboard shows everything I'm doing in real-time:\n- Live scored tokens from Robinhood Chain\n- Market heat gauge showing opportunity level\n- Pending launch proposals\n- Active guardian positions\n- System status and scan history\n\nIt's your window into what I see and how I decide what to launch.\n\n<b>Ask me anything:</b>\n\n/scoring - How the scoring algorithm works\n/launch - How token launching works\n/guardian - Post-launch monitoring\n/narrative - AI narrative detection\n/costs - What it costs\n/heat - Market heat explained\n/config - Current thresholds\n/proposals - View pending launches\n/status - System status\n/help - All commands\n\nJust type a question like "how does scoring work" or "what does the guardian do" and I'll answer it.`,
+  greet: `<b>Hey! Welcome to COOKING.</b>\n\nI'm your autonomous Robinhood Chain token sniper. I scan Dexscreener trending tokens across ALL chains, score them with AI, propose launches via PONS, auto-trade with Uniswap V3, and guard your positions — all on autopilot.\n\n<b>Dashboard:</b> https://cookingbot-production-bcf3.up.railway.app\n\nThe dashboard shows everything I'm doing in real-time:\n- Live scored tokens from ALL chains\n- Market heat gauge showing opportunity level\n- AI Narrative Intelligence with Groq analysis\n- Pending launch proposals\n- Active guardian positions\n- Wallet balance and trade history\n\nIt's your window into what I see and how I decide what to launch.\n\n<b>Ask me anything:</b>\n\n/scoring - How the scoring algorithm works\n/launch - How token launching works\n/guardian - Post-launch monitoring\n/narrative - AI narrative detection\n/costs - What it costs\n/wallet - Wallet & funding info\n/heat - Market heat explained\n/config - Current thresholds\n/proposals - View pending launches\n/status - System status\n/help - All commands\n\nJust type a question like "how does scoring work" or "what does the guardian do" and I'll answer it.`,
 
   group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/help - All commands\n\nYou'll receive proposals with Approve/Reject buttons when the engine finds a strong signal.`,
 
   what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Robinhood Chain token sniper. It scans Uniswap pools, scores every token with a 6-factor algorithm + AI narrative detection, proposes launches when conditions are right, and monitors your positions 24/7 for rugs and price moves.`,
 
-  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Uniswap pools and Blockscout analytics\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via PONS with locked liquidity\n4. <b>Guard</b> - Monitors your token 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
+  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Dexscreener across all chains\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via PONS with locked liquidity\n4. <b>Trade</b> - Auto-buys a small amount after launch. Guardian auto-sells on stop-loss/take-profit\n5. <b>Guard</b> - Monitors your token 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
 
-  score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection to rate every token on Robinhood Chain.\n\n<b>The 6 Factors:</b>\n\n1. Volume Spike (25% weight)\nMeasures volume-to-liquidity ratio. A sudden spike means traders are piling in.\n\n2. Liquidity Depth (20% weight)\nChecks if there's enough liquidity on Uniswap to actually trade. Minimum $10K required.\n\n3. 24-Hour Momentum (20% weight)\nPrice trend over the last 24 hours. Strong upward momentum scores high.\n\n4. 1-Hour Momentum (15% weight)\nShort-term action. Are buyers stepping in right now?\n\n5. Holder Growth (10% weight)\nNumber of unique holders and distribution. More holders = healthier token.\n\n6. Safety Score (10% weight)\nContract verification, owner renounced, top holder concentration.\n\n<b>Narrative Boost</b>\nGoogle Gemini AI analyzes trending themes on Robinhood Chain (AI agents, tokenized stocks, memes, DePIN). Tokens matching hot narratives get up to +15% score boost.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable (proposes a launch)\n- 45-69% = Watchlist (monitored)\n- Below 45% = Noise (ignored)`,
+  score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection to rate every token on Robinhood Chain.\n\n<b>The 6 Factors:</b>\n\n1. Volume Spike (25% weight)\nMeasures volume-to-liquidity ratio. A sudden spike means traders are piling in.\n\n2. Liquidity Depth (20% weight)\nChecks if there's enough liquidity on Uniswap to actually trade. Minimum $10K required.\n\n3. 24-Hour Momentum (20% weight)\nPrice trend over the last 24 hours. Strong upward momentum scores high.\n\n4. 1-Hour Momentum (15% weight)\nShort-term action. Are buyers stepping in right now?\n\n5. Holder Growth (10% weight)\nNumber of unique holders and distribution. More holders = healthier token.\n\n6. Safety Score (10% weight)\nContract verification, owner renounced, top holder concentration.\n\n<b>Narrative Boost</b>\nQwen AI on Groq analyzes trending themes across all chains. Tokens matching hot narratives get up to +15% score boost.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable (proposes a launch)\n- 45-69% = Watchlist (monitored)\n- Below 45% = Noise (ignored)`,
 
   launch: `<b>Token Launching</b>\n\nWhen a token scores 70%+ and conditions are right:\n- AI evaluates market heat, confidence, and narrative alignment\n- Must hit 75%+ confidence to propose\n- You approve via Telegram buttons\n- Deploys via PONS (~0.01 ETH)\n- Liquidity is auto-locked — rug-proof from day one`,
 
@@ -184,7 +184,9 @@ const QA: Record<string, string> = {
 
   narrative: `<b>AI Narrative Detection</b>\n\nCOOKING uses Qwen AI on Groq to identify trending themes across all chains:\n\n- Scans trending tokens from Dexscreener across Solana, Ethereum, Base, and more\n- AI analyzes token clusters to identify hot narratives\n- Detects meme trends, sector rotations, and hype cycles\n\nTokens matching hot narratives get a score boost (up to +15%), making them more likely to be proposed for launch.\n\nExamples: AI agents, tokenized stocks, political memes, DePIN, gaming tokens.\n\nNarratives refresh every 5 minutes automatically.`,
 
-  cost: `<b>Costs</b>\n\n- PONS launch: ~0.01 ETH (gas only)\n- Guardian monitoring: free\n- Narrative detection: free (Groq free tier)\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
+  cost: `<b>Costs</b>\n\n- PONS launch: ~0.01 ETH (gas only)\n- Auto-buy on launch: configurable (default 0.005 ETH)\n- Guardian monitoring: free\n- Narrative detection: free (Groq free tier)\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
+
+  wallet: `<b>Wallet</b>\n\nCOOKING auto-generates a wallet on first start. The address is shown on the dashboard.\n\nTo fund it:\n1. Go to the dashboard → Wallet section\n2. Copy the wallet address\n3. Send ETH on Robinhood Chain to that address\n4. The bot uses it for launches and trading\n\nThe wallet is saved in data/wallet.json and persists across redeploys.`,
 
   approve: `<b>Approving a Launch</b>\n\nWhen a new proposal comes in:\n- Tap the Approve or Reject button\n- Or send /approve &lt;decision_id&gt;\n- Or use the API: POST /api/approve/&lt;id&gt;\n- Approval window: 5 minutes`,
 
@@ -192,7 +194,7 @@ const QA: Record<string, string> = {
 
   chain: `<b>Robinhood Chain</b>\n\n- Ethereum L2 built on Arbitrum\n- ~100ms block times, sub-cent gas fees\n- Uniswap V2/V3/V4 for trading\n- PONS for token launches with locked LP\n- Blockscout for analytics and safety\n- Chain ID 4663`,
 
-  help: `<b>COOKING Commands</b>\n\n/start - Welcome message\n/status - System status\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/narrative - AI narrative detection\n/config - Current thresholds\n/costs - Launch costs\n/heat - Market heat explained\n/help - This message`,
+  help: `<b>COOKING Commands</b>\n\n/start - Welcome message\n/status - System status\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/narrative - AI narrative detection\n/config - Current thresholds\n/costs - Launch costs\n/wallet - Wallet & funding info\n/heat - Market heat explained\n/help - This message`,
 };
 
 async function matchQuestion(text: string): Promise<string | null> {
@@ -207,6 +209,7 @@ async function matchQuestion(text: string): Promise<string | null> {
   if (lower === "/narrative") return QA.narrative;
   if (lower === "/config") return handleConfig();
   if (lower === "/costs" || lower === "/cost") return QA.cost;
+  if (lower === "/wallet") return await handleWallet();
   if (lower === "/heat") return QA.heat;
 
   if (lower.startsWith("/approve ")) {
@@ -230,8 +233,11 @@ async function matchQuestion(text: string): Promise<string | null> {
   if (lower.includes("guard") || lower.includes("monitor") || lower.includes("rug") || lower.includes("scam") || lower.includes("protect") || lower.includes("stop loss") || lower.includes("take profit") || lower.includes("alert"))
     return QA.guardian;
 
-  if (lower.includes("cost") || lower.includes("fee") || lower.includes("pay") || lower.includes("price") || lower.includes("how much") || lower.includes("expensive") || lower.includes("cheap") || lower.includes("sol"))
+  if (lower.includes("cost") || lower.includes("fee") || lower.includes("pay") || lower.includes("price") || lower.includes("how much") || lower.includes("expensive") || lower.includes("cheap") || lower.includes("eth"))
     return QA.cost;
+
+  if (lower.includes("wallet") || lower.includes("address") || lower.includes("fund") || lower.includes("balance") || lower.includes("private key"))
+    return QA.wallet;
 
   if (lower.includes("launch") || lower.includes("deploy") || lower.includes("create") || lower.includes("buy") || lower.includes("swap") || lower.includes("token") || lower.includes("pump") || lower.includes("raydium"))
     return QA.launch;
@@ -303,6 +309,32 @@ function handleProposals(): string {
   return lines.join("\n");
 }
 
+async function handleWallet(): Promise<string> {
+  try {
+    const { getWalletAddress, getBalance } = await import("../wallet/wallet.js");
+    const address = getWalletAddress();
+    const { eth } = await getBalance();
+    const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+    return [
+      `<b>Wallet</b>`,
+      ``,
+      `<b>Address:</b> <code>${shortAddr}</code>`,
+      `<b>Balance:</b> ${parseFloat(eth).toFixed(4)} ETH`,
+      ``,
+      `<b>To fund:</b>`,
+      `1. Copy the address above`,
+      `2. Send ETH on Robinhood Chain to it`,
+      `3. The bot uses it for launches and trading`,
+      ``,
+      `<a href="https://robinhoodchain.blockscout.com/address/${address}">View on Blockscout →</a>`,
+      ``,
+      `Dashboard: https://cookingbot-production-bcf3.up.railway.app`,
+    ].join("\n");
+  } catch (err) {
+    return QA.wallet;
+  }
+}
+
 function handleConfig(): string {
   return [
     `<b>Current Thresholds</b>`,
@@ -344,6 +376,7 @@ const QUESTION_BUTTONS: Array<Array<{ text: string; callback_data: string }>> = 
   [{ text: "How does launching work?", callback_data: "q:launch" }],
   [{ text: "What is the guardian?", callback_data: "q:guardian" }],
   [{ text: "What does it cost?", callback_data: "q:cost" }],
+  [{ text: "Wallet & Funding", callback_data: "q:wallet" }],
   [{ text: "Market heat explained", callback_data: "q:heat" }],
   [{ text: "Robinhood Chain", callback_data: "q:chain" }],
   [{ text: "System status", callback_data: "q:status" }],
@@ -430,6 +463,7 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
       launch: QA.launch,
       guardian: QA.guardian,
       cost: QA.cost,
+      wallet: QA.wallet,
       heat: QA.heat,
       chain: QA.chain,
       status: handleStatus(),

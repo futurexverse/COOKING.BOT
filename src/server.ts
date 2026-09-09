@@ -129,6 +129,38 @@ app.get("/api/narrative/refresh", async (_request, reply) => {
   return reply.code(200).send(narrative);
 });
 
+app.get("/api/wallet", async () => {
+  const { getWalletAddress, getBalance } = await import("./wallet/wallet.js");
+  const address = getWalletAddress();
+  const balance = await getBalance();
+  return { address, balance: balance.eth, balanceWei: balance.wei.toString() };
+});
+
+app.get("/api/wallet/trades", async () => {
+  const { getTradeHistory } = await import("./launch/launcher.js");
+  return getTradeHistory();
+});
+
+app.post("/api/wallet/buy", async (request, reply) => {
+  const body = request.body as { tokenAddress?: string; ethAmount?: string };
+  if (!body.tokenAddress || !body.ethAmount) {
+    return reply.code(400).send({ error: "tokenAddress and ethAmount required" });
+  }
+  const { buyToken } = await import("./trading/buy.js");
+  const result = await buyToken(body.tokenAddress, body.ethAmount);
+  return result;
+});
+
+app.post("/api/wallet/sell", async (request, reply) => {
+  const body = request.body as { tokenAddress?: string; percentage?: number };
+  if (!body.tokenAddress) {
+    return reply.code(400).send({ error: "tokenAddress required" });
+  }
+  const { sellToken } = await import("./trading/sell.js");
+  const result = await sellToken(body.tokenAddress, body.percentage || 100);
+  return result;
+});
+
 app.get("/api/config", async () => {
   try {
     const configRaw = readFileSync(
