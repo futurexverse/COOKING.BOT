@@ -1,13 +1,59 @@
 import { fetchUniswapTopPools } from "./sources/uniswap.js";
 import { analyzeNarrative, type NarrativeAnalysis, type NarrativeToken } from "./sources/openai.js";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = join(__dirname, "..", "..");
+const CALLED_TOKENS_FILE = join(ROOT_DIR, "data", "called_tokens.json");
 
 let cachedNarratives: NarrativeAnalysis | null = null;
 let lastNarrativeFetch = 0;
 const NARRATIVE_CACHE_TTL = 300000;
 
-// Track recent narratives to prevent repetition
+// Track recent narratives to prevent theme repetition
 const recentNarratives: string[] = [];
-const MAX_RECENT = 15; // Remember last 15 narratives
+const MAX_RECENT = 15;
+
+// Track all called tokens (never repeat)
+let calledTokens: string[] = [];
+
+function loadCalledTokens(): void {
+  try {
+    if (existsSync(CALLED_TOKENS_FILE)) {
+      calledTokens = JSON.parse(readFileSync(CALLED_TOKENS_FILE, "utf-8"));
+    }
+  } catch {}
+}
+
+function saveCalledTokens(): void {
+  const dir = dirname(CALLED_TOKENS_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(CALLED_TOKENS_FILE, JSON.stringify(calledTokens, null, 2));
+}
+
+function addCalledTokens(tokens: NarrativeToken[]): void {
+  for (const t of tokens) {
+    const addr = t.address.toLowerCase();
+    if (!calledTokens.includes(addr)) {
+      calledTokens.push(addr);
+    }
+  }
+  saveCalledTokens();
+}
+
+function getCalledTokens(): string[] {
+  return [...calledTokens];
+}
+
+function clearCalledTokens(): void {
+  calledTokens = [];
+  saveCalledTokens();
+  console.log("[Narrative] Cleared called tokens list — starting fresh");
+}
+
+loadCalledTokens();
 
 export type { NarrativeAnalysis, NarrativeToken };
 
@@ -41,12 +87,12 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
 
   let tokens: Awaited<ReturnType<typeof fetchUniswapTopPools>> = [];
   try {
-    tokens = await fetchUniswapTopPools(40); // Fetch more to have good mid-cap selection
+    tokens = await fetchUniswapTopPools(50);
   } catch (err) {
     console.error("[Narrative] Dexscreener fetch failed:", err);
   }
 
-  console.log(`[Narrative] Got ${tokens.length} mid-cap tokens from Dexscreener`);
+  console.log(`[Narrative] Got ${tokens.length} tokens from Dexscreener`);
 
   if (tokens.length === 0) {
     console.log("[Narrative] No token data available, using cached or fallback");
@@ -54,10 +100,10 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     return fallbackAnalysis();
   }
 
-  // Filter to mid-cap only ($100K - $10M) as backup
+  // Filter to mid-cap only ($20K - $10M) as backup
   const midCapTokens = tokens.filter(t => {
     const mc = t.market_cap || 0;
-    return mc >= 100000 && mc <= 10000000;
+    return mc >= 20000 && mc <= 10000000;
   });
 
   console.log(`[Narrative] ${midCapTokens.length} mid-cap tokens after filter`);
@@ -82,20 +128,23 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
   // Sort by volume for better analysis
   tokenSummary.sort((a, b) => b.volume_24h - a.volume_24h);
 
+  // Pass called tokens to Groq so it avoids them
+  const calledTokensList = getCalledTokens();
+
   // Pass recent narratives to Groq so it avoids repetition
-  const recentContext = recentNarratives.length > 0
-    ? `\n\nRECENT NARRATIVES (avoid these, they were already covered): ${recentNarratives.join(", ")}`
-    : "";
+  const analysis = await analyzeNarrative(tokenSummary, calledTokensList);
 
-  const analysis = await analyzeNarrative(tokenSummary);
+  // Save called tokens
+  for (const [narrative, tokens] of Object.entries(analysis.tokens_per_narrative)) {
+    addCalledTokens(tokens);
+  }
 
-  // Add recent narratives to context for next cycle
+  // Track recent narratives
   for (const narrative of analysis.trending_narratives) {
     if (!recentNarratives.includes(narrative)) {
       recentNarratives.push(narrative);
     }
   }
-  // Trim recent narratives
   while (recentNarratives.length > MAX_RECENT) {
     recentNarratives.shift();
   }
@@ -107,9 +156,10 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
   console.log(`[Narrative] Scores: ${JSON.stringify(analysis.theme_scores)}`);
   console.log(`[Narrative] Tokens per narrative:`);
   for (const [narrative, tokens] of Object.entries(analysis.tokens_per_narrative)) {
-    console.log(`  ${narrative}: ${tokens.map(t => `${t.symbol} (${t.address.slice(0, 8)}...)`).join(", ")}`);
+    console.log(`  ${narrative}: ${tokens.map(t => `${t.symbol} (${t.address.slice(0, 8)}...) MC:$${t.market_cap}`).join(", ")}`);
   }
   console.log(`[Narrative] Reasoning: ${analysis.reasoning}`);
+  console.log(`[Narrative] Total called tokens: ${calledTokens.length}`);
 
   return analysis;
 }

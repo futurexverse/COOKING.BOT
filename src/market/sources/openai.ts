@@ -28,46 +28,47 @@ export interface NarrativeAnalysis {
 
 const SYSTEM_PROMPT = `You are COOKING, an AI mid-cap token analyst. You analyze trending MID-CAP tokens across multiple blockchains to identify the hottest narratives for GROWTH opportunities.
 
-You will receive a list of trending tokens with their symbols, names, addresses, chains, volume, market cap, holders, and 24h price change. ALL tokens are already filtered to mid-cap range ($100K-$10M market cap).
+You will receive a list of trending tokens with their symbols, names, addresses, chains, volume, market cap, holders, and 24h price change. ALL tokens are already filtered to mid-cap range ($20K-$10M market cap).
 
 Your job: Identify the TOP 5 trending narratives (themes, memes, sectors) that are HOT RIGHT NOW for mid-cap growth.
 
 CRITICAL RULES:
 1. MID-CAP FOCUS: These are growth coins — not established giants. Focus on momentum and breakout potential.
 2. DIVERSITY: Each narrative must be DISTINCT. No overlapping themes. If you pick "AI agents", don't also pick "AI tokens" or "AI companions".
-3. TOKEN EXAMPLES: For each narrative, pick the TOP 2-3 tokens that represent that theme. Include their EXACT contract addresses and chain.
-4. NO REPETITION: Do not repeat themes from cycle to cycle. Vary between: memes, DeFi, RWA, gaming, infrastructure, SocialFi, political, animals, culture.
+3. TOKEN EXAMPLES: For each narrative, pick the TOP 2-3 tokens that represent that theme. Use the EXACT contract addresses from the data provided.
+4. NO REPETITION: Do not repeat themes. Vary between: memes, DeFi, RWA, gaming, infrastructure, SocialFi, political, animals, culture, L2, restaking.
 5. GROWTH SIGNAL: Prioritize tokens with volume spikes, holder growth, and positive price action.
+6. USE REAL DATA: Only use tokens from the provided list. Do not make up addresses.
 
-Return a JSON object with:
-- trending_narratives: array of exactly 5 DISTINCT narrative names (e.g., ["AI agents", "PolitiFi", "Cat coins", "RWA tokenization", "DePIN"])
-- theme_scores: object mapping each narrative to a HOTNESS score 0-100 (100 = extremely hot momentum; 0 = dead). Score 80+ for tokens with strong volume/price action.
-- tokens_per_narrative: object mapping each narrative to an array of 2-3 tokens. Each token must have:
-  - symbol: token symbol
-  - address: EXACT contract address from the data
-  - chain: blockchain name
-  - market_cap: market cap number
-  - volume_24h: 24h volume
-  - change_24h: 24h price change percentage
-  - dexscreener_url: "https://dexscreener.com/{chain}/{address}"
-- reasoning: 2-3 sentences explaining WHY these narratives are hot. Reference specific tokens and their metrics.
-
-EXAMPLE FORMAT:
+Return a JSON object with this EXACT structure:
 {
-  "trending_narratives": ["AI agents", "PolitiFi", "Cat coins", "RWA tokenization", "DePIN"],
-  "theme_scores": {"AI agents": 85, "PolitiFi": 72, "Cat coins": 68, "RWA tokenization": 55, "DePIN": 48},
+  "trending_narratives": ["narrative1", "narrative2", "narrative3", "narrative4", "narrative5"],
+  "theme_scores": {"narrative1": 85, "narrative2": 72, "narrative3": 68, "narrative4": 55, "narrative5": 48},
   "tokens_per_narrative": {
-    "AI agents": [
-      {"symbol": "AIBOT", "address": "0x123...", "chain": "solana", "market_cap": 2500000, "volume_24h": 500000, "change_24h": 15.2, "dexscreener_url": "https://dexscreener.com/solana/0x123..."}
+    "narrative1": [
+      {"symbol": "SYM1", "address": "0x...", "chain": "chain", "market_cap": 1234567, "volume_24h": 500000, "change_24h": 15.2, "dexscreener_url": "https://dexscreener.com/chain/0x..."},
+      {"symbol": "SYM2", "address": "0x...", "chain": "chain", "market_cap": 2345678, "volume_24h": 300000, "change_24h": 8.1, "dexscreener_url": "https://dexscreener.com/chain/0x..."}
     ]
   },
-  "reasoning": "AI agents are surging with AIBOT leading at $2.5M MC and 15% gains..."
+  "reasoning": "2-3 sentences explaining why these narratives are hot. Reference specific tokens and metrics."
 }
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no extra text.`;
+IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no extra text.`;
+
+function extractJsonFromText(text: string): Record<string, unknown> | null {
+  // Try to find JSON in the text (might be wrapped in markdown code blocks)
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+}
 
 export async function analyzeNarrative(
-  tokenData: Array<{ symbol: string; name?: string; address?: string; chain?: string; volume_24h?: number; market_cap?: number; holders?: number; change_24h?: number }>
+  tokenData: Array<{ symbol: string; name?: string; address?: string; chain?: string; volume_24h?: number; market_cap?: number; holders?: number; change_24h?: number }>,
+  calledTokens: string[] = []
 ): Promise<NarrativeAnalysis> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -77,7 +78,21 @@ export async function analyzeNarrative(
 
   console.log(`[Groq] Using key: ${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}`);
 
-  const tokenSummary = tokenData.slice(0, 30).map((t) => ({
+  // Filter out already-called tokens
+  const availableTokens = tokenData.filter(t => {
+    const addr = (t.address || "").toLowerCase();
+    return !calledTokens.includes(addr);
+  });
+
+  console.log(`[Groq] ${availableTokens.length} tokens available after filtering called tokens`);
+
+  if (availableTokens.length < 5) {
+    console.log("[Groq] Too few tokens after filtering, using all tokens");
+  }
+
+  const tokensForAnalysis = availableTokens.length >= 5 ? availableTokens : tokenData;
+
+  const tokenSummary = tokensForAnalysis.slice(0, 30).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
     address: t.address || "",
@@ -88,11 +103,14 @@ export async function analyzeNarrative(
     change_24h: t.change_24h || 0,
   }));
 
-  const userMessage = `Analyze these MID-CAP trending tokens ($100K-$10M market cap) and identify the HOTTEST narratives:
+  // Sort by volume for better analysis
+  tokenSummary.sort((a, b) => b.vol - a.vol);
+
+  const userMessage = `Analyze these MID-CAP trending tokens ($20K-$10M market cap) and identify the HOTTEST narratives for growth:
 
 ${JSON.stringify(tokenSummary, null, 2)}
 
-What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 representative tokens with their exact addresses.`;
+What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 representative tokens with their exact addresses from the data above.`;
 
   try {
     const url = `${GROQ_BASE}/chat/completions`;
@@ -109,10 +127,9 @@ What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 re
           { role: "user", content: userMessage },
         ],
         temperature: 0.4,
-        max_tokens: 1500,
-        response_format: { type: "json_object" },
+        max_tokens: 4000,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!resp.ok) {
@@ -126,31 +143,58 @@ What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 re
     };
 
     const text = data.choices?.[0]?.message?.content || "";
-    console.log(`[Groq] Raw response: ${text.substring(0, 500)}`);
+    console.log(`[Groq] Raw response length: ${text.length}`);
 
-    const parsed = JSON.parse(text) as NarrativeAnalysis;
+    // Try to parse JSON from response
+    let parsed = extractJsonFromText(text);
 
-    // Build dexscreener URLs for any tokens missing them
-    const tokensPerNarrative = parsed.tokens_per_narrative || {};
-    for (const [narrative, tokens] of Object.entries(tokensPerNarrative)) {
-      tokensPerNarrative[narrative] = tokens.map(t => ({
-        ...t,
-        dexscreener_url: t.dexscreener_url || `https://dexscreener.com/${t.chain}/${t.address}`,
-      }));
+    if (!parsed) {
+      console.error("[Groq] Failed to parse JSON from response");
+      console.error(`[Groq] Response: ${text.substring(0, 500)}`);
+      return fallbackAnalysis();
+    }
+
+    // Build dexscreener URLs and cross-reference market_cap from input data
+    const tokensPerNarrative: Record<string, NarrativeToken[]> = {};
+    const inputTokenMap = new Map<string, { market_cap: number; volume_24h: number; change_24h: number }>();
+    for (const t of tokenSummary) {
+      inputTokenMap.set(t.address.toLowerCase(), {
+        market_cap: t.mc,
+        volume_24h: t.vol,
+        change_24h: t.change_24h,
+      });
+    }
+
+    const rawTokensPerNarrative = (parsed as any).tokens_per_narrative || {};
+    for (const [narrative, tokens] of Object.entries(rawTokensPerNarrative)) {
+      if (!Array.isArray(tokens)) continue;
+      tokensPerNarrative[narrative] = tokens.map((t: any) => {
+        const addr = (t.address || "").toLowerCase();
+        const inputData = inputTokenMap.get(addr);
+        return {
+          symbol: t.symbol || "?",
+          address: t.address || "",
+          chain: t.chain || "unknown",
+          market_cap: inputData?.market_cap || t.market_cap || 0,
+          volume_24h: inputData?.volume_24h || t.volume_24h || 0,
+          change_24h: inputData?.change_24h || t.change_24h || 0,
+          dexscreener_url: t.dexscreener_url || `https://dexscreener.com/${t.chain}/${t.address}`,
+        };
+      });
     }
 
     const result: NarrativeAnalysis = {
-      trending_narratives: (parsed.trending_narratives || []).slice(0, 5),
-      theme_scores: parsed.theme_scores || {},
+      trending_narratives: ((parsed as any).trending_narratives || []).slice(0, 5),
+      theme_scores: (parsed as any).theme_scores || {},
       tokens_per_narrative: tokensPerNarrative,
-      reasoning: parsed.reasoning || "Analysis complete.",
+      reasoning: (parsed as any).reasoning || "Analysis complete.",
       raw_response: text,
     };
 
     console.log(`[Groq] Narratives: ${result.trending_narratives.join(", ")}`);
     console.log(`[Groq] Scores: ${JSON.stringify(result.theme_scores)}`);
     for (const [narrative, tokens] of Object.entries(result.tokens_per_narrative)) {
-      console.log(`[Groq] ${narrative}: ${tokens.map(t => t.symbol).join(", ")}`);
+      console.log(`[Groq] ${narrative}: ${tokens.map(t => `${t.symbol} (${t.address.slice(0, 8)}...) MC:$${t.market_cap}`).join(", ")}`);
     }
     console.log(`[Groq] Reasoning: ${result.reasoning}`);
 

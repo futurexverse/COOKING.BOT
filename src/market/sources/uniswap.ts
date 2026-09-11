@@ -97,9 +97,9 @@ export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]
           const mc = pair.marketCap || pair.fdv || 0;
           if (vol < 10000 || liq < 5000) continue;
 
-          // Filter: mid-cap only ($100K - $10M)
+          // Filter: mid-cap only ($20K - $10M)
           if (mc > 10000000) continue; // Skip big tokens
-          if (mc < 100000 && mc > 0) continue; // Skip micro caps
+          if (mc < 20000 && mc > 0) continue; // Skip micro caps
           if (mc === 0) continue; // Skip unknown market cap
 
           results.push({

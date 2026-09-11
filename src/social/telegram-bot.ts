@@ -1050,7 +1050,7 @@ export async function sendNarrativeToTelegram(narrative: {
   const lines = [
     `<b>🧠 NARRATIVE INTELLIGENCE</b>`,
     ``,
-    `<b>Mid-Cap Opportunities ($100K-$10M)</b>`,
+    `<b>Mid-Cap Opportunities ($20K-$10M)</b>`,
     ``,
   ];
 
@@ -1064,13 +1064,31 @@ export async function sendNarrativeToTelegram(narrative: {
     const tokens = tokensPerNarrative[n] || [];
     if (tokens.length > 0) {
       for (const token of tokens.slice(0, 3)) {
-        const mcStr = token.market_cap >= 1000000
-          ? `$${(token.market_cap / 1000000).toFixed(1)}M`
-          : `$${(token.market_cap / 1000).toFixed(0)}K`;
+        const mc = token.market_cap || 0;
+        let mcStr = "N/A";
+        if (mc >= 1000000) {
+          mcStr = `$${(mc / 1000000).toFixed(1)}M`;
+        } else if (mc >= 1000) {
+          mcStr = `$${(mc / 1000).toFixed(0)}K`;
+        } else if (mc > 0) {
+          mcStr = `$${mc.toFixed(0)}`;
+        }
+
+        const vol = token.volume_24h || 0;
+        let volStr = "N/A";
+        if (vol >= 1000000) {
+          volStr = `$${(vol / 1000000).toFixed(1)}M`;
+        } else if (vol >= 1000) {
+          volStr = `$${(vol / 1000).toFixed(0)}K`;
+        } else if (vol > 0) {
+          volStr = `$${vol.toFixed(0)}`;
+        }
+
         const changeStr = token.change_24h > 0 ? `+${token.change_24h.toFixed(1)}%` : `${token.change_24h.toFixed(1)}%`;
+        const chainStr = token.chain || "?";
 
         lines.push(`  <b>${token.symbol}</b> (<code>${token.address}</code>)`);
-        lines.push(`  MC: ${mcStr} | Vol: $${(token.volume_24h / 1000).toFixed(0)}K | ${changeStr}`);
+        lines.push(`  MC: ${mcStr} | Vol: ${volStr} | ${changeStr} | ${chainStr}`);
         lines.push(`  <a href="${token.dexscreener_url}">Dexscreener</a>`);
       }
 
@@ -1084,7 +1102,7 @@ export async function sendNarrativeToTelegram(narrative: {
         inlineKeyboard.push(row);
       }
     } else {
-      lines.push(`  No tokens identified for this narrative`);
+      lines.push(`  <i>No tokens identified</i>`);
     }
 
     lines.push(``);
