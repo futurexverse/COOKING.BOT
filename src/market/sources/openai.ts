@@ -106,11 +106,12 @@ export async function analyzeNarrative(
   // Sort by volume for better analysis
   tokenSummary.sort((a, b) => b.vol - a.vol);
 
-  const userMessage = `Analyze these MID-CAP trending tokens ($20K-$10M market cap) and identify the HOTTEST narratives for growth:
+  const userMessage = `Analyze these trending tokens and identify the TOP 3 diverse narratives. For each narrative, pick 1 token with its exact address.
 
-${JSON.stringify(tokenSummary, null, 2)}
+Tokens: ${JSON.stringify(tokenSummary)}
 
-What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 representative tokens with their exact addresses from the data above.`;
+Respond with ONLY this JSON:
+{"trending_narratives":["narrative1","narrative2","narrative3"],"theme_scores":{"narrative1":90,"narrative2":80,"narrative3":70},"tokens_per_narrative":{"narrative1":[{"symbol":"SYM","address":"0x...","chain":"solana","market_cap":100000,"volume_24h":500000,"change_24h":150}]},"reasoning":"brief reason"}`;
 
   try {
     const url = `${GROQ_BASE}/chat/completions`;
