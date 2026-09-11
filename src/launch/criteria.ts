@@ -3,6 +3,33 @@ import { randomUUID } from "crypto";
 import { registerProposal, hasPendingProposalForSymbol, isSymbolOnCooldown } from "../social/approval.js";
 import { sendProposalToTelegram } from "../social/telegram-bot.js";
 
+async function existsOnRobinhood(symbol: string): Promise<boolean> {
+  try {
+    const resp = await fetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!resp.ok) return false;
+
+    const data = await resp.json() as { pairs?: Array<{ chainId: string; baseToken: { symbol: string } }> };
+    const pairs = data.pairs || [];
+
+    const exists = pairs.some(
+      (p) =>
+        (p.chainId === "robinhoodchain" || p.chainId === "robinhood") &&
+        p.baseToken.symbol.toUpperCase() === symbol.toUpperCase()
+    );
+
+    if (exists) {
+      console.log(`[Criteria] $${symbol} already exists on Robinhood Chain — skipping`);
+    }
+    return exists;
+  } catch (err) {
+    console.error(`[Criteria] Dexscreener check failed for $${symbol}:`, err);
+    return false;
+  }
+}
+
 interface LaunchContext {
   signal?: ScoredSignal;
   market_heat?: number;
@@ -148,6 +175,21 @@ export async function evaluateLaunchConditions(
       platform: "pons",
       confidence: 0,
       reasoning: "Skipped — on 1-hour cooldown after recent proposal",
+      estimated_cost_eth: 0.01,
+      signal,
+      created_at: Date.now(),
+      status: "rejected",
+    };
+  }
+
+  if (signal && await existsOnRobinhood(signal.symbol)) {
+    return {
+      decision_id: "duplicate",
+      symbol: signal.symbol,
+      name: signal.name || "Unknown",
+      platform: "pons",
+      confidence: 0,
+      reasoning: "Skipped — token already exists on Robinhood Chain",
       estimated_cost_eth: 0.01,
       signal,
       created_at: Date.now(),
