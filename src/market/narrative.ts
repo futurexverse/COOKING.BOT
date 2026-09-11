@@ -10,7 +10,7 @@ const CALLED_TOKENS_FILE = join(ROOT_DIR, "data", "called_tokens.json");
 
 let cachedNarratives: NarrativeAnalysis | null = null;
 let lastNarrativeFetch = 0;
-const NARRATIVE_CACHE_TTL = 600000;
+const NARRATIVE_CACHE_TTL = 1800000;
 
 // Track recent narratives to prevent theme repetition
 const recentNarratives: string[] = [];

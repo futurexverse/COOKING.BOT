@@ -127,7 +127,7 @@ What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 re
           { role: "user", content: userMessage },
         ],
         temperature: 0.4,
-        max_tokens: 800,
+        max_tokens: 500,
       }),
       signal: AbortSignal.timeout(30000),
     });
