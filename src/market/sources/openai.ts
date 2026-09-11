@@ -114,23 +114,40 @@ What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 re
 
   try {
     const url = `${GROQ_BASE}/chat/completions`;
-    const resp = await fetch(url, {
+    const body = JSON.stringify({
+      model: getModel(),
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.4,
+      max_tokens: 500,
+    });
+
+    let resp = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: getModel(),
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.4,
-        max_tokens: 500,
-      }),
+      body,
       signal: AbortSignal.timeout(30000),
     });
+
+    // Retry once on 429 after 30s
+    if (resp.status === 429) {
+      console.log("[Groq] 429 rate limit, retrying in 30s...");
+      await new Promise(r => setTimeout(r, 30000));
+      resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body,
+        signal: AbortSignal.timeout(30000),
+      });
+    }
 
     if (!resp.ok) {
       const err = await resp.text();
