@@ -92,7 +92,7 @@ export async function analyzeNarrative(
 
   const tokensForAnalysis = availableTokens.length >= 5 ? availableTokens : tokenData;
 
-  const tokenSummary = tokensForAnalysis.slice(0, 30).map((t) => ({
+  const tokenSummary = tokensForAnalysis.slice(0, 15).map((t) => ({
     symbol: t.symbol,
     name: t.name || "",
     address: t.address || "",
@@ -121,7 +121,7 @@ What are the top 5 diverse narratives RIGHT NOW? For each narrative, pick 2-3 re
         { role: "user", content: userMessage },
       ],
       temperature: 0.4,
-      max_tokens: 500,
+        max_tokens: 700,
     });
 
     let resp = await fetch(url, {
