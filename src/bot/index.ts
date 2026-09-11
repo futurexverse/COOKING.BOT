@@ -3,7 +3,7 @@ import { analyzeMarket, updateMindSnapshot } from "../market/analyzer.js";
 import { evaluateLaunchConditions } from "../launch/criteria.js";
 import { executeLaunch, getActiveLaunches } from "../launch/launcher.js";
 import { processApproval } from "../social/approval.js";
-import { startTelegramBot } from "../social/telegram-bot.js";
+import { startTelegramBot, sendGuardianAlertToTelegram } from "../social/telegram-bot.js";
 import { refreshNarratives } from "../market/narrative.js";
 import {
   runGuardianCycle,
@@ -162,22 +162,38 @@ async function runGuardianCycles(): Promise<void> {
     try {
       const result = await runGuardianCycle(launch);
 
-      if (result.alerts.length > 0) {
-        console.log(
-          `[Bot] $${launch.symbol}: ${result.alerts.length} rug alert(s)`
-        );
+      for (const alert of result.alerts) {
+        console.log(`[Bot] $${launch.symbol}: ${alert.type} — ${alert.message}`);
+        sendGuardianAlertToTelegram({
+          type: alert.type,
+          symbol: launch.symbol,
+          message: alert.message,
+          severity: alert.severity,
+          tokenAddress: launch.mint,
+        }).catch(() => {});
       }
 
-      if (result.performanceAlerts.length > 0) {
-        console.log(
-          `[Bot] $${launch.symbol}: ${result.performanceAlerts.length} perf alert(s)`
-        );
+      for (const alert of result.performanceAlerts) {
+        console.log(`[Bot] $${launch.symbol}: ${alert.type} — ${alert.message}`);
+        sendGuardianAlertToTelegram({
+          type: alert.type,
+          symbol: launch.symbol,
+          message: alert.message,
+          severity: alert.severity,
+          tokenAddress: launch.mint,
+        }).catch(() => {});
       }
 
       if (result.lpAction.should_exit) {
-        console.log(
-          `[Bot] $${launch.symbol}: LP EXIT - ${result.lpAction.reason}`
-        );
+        console.log(`[Bot] $${launch.symbol}: LP EXIT - ${result.lpAction.reason}`);
+        sendGuardianAlertToTelegram({
+          type: result.lpAction.exit_type || "exit",
+          symbol: launch.symbol,
+          message: `${result.lpAction.reason}${result.lpAction.pnl_pct ? ` (PnL: ${result.lpAction.pnl_pct > 0 ? "+" : ""}${result.lpAction.pnl_pct.toFixed(1)}%)` : ""}`,
+          severity: result.lpAction.exit_type === "emergency" ? "critical" : "warning",
+          tokenAddress: launch.mint,
+          pnlPct: result.lpAction.pnl_pct,
+        }).catch(() => {});
       }
     } catch (err) {
       console.error(`[Bot] Guardian error for $${launch.symbol}:`, err);

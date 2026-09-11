@@ -979,6 +979,7 @@ export async function sendProposalToTelegram(proposal: {
   platform: string;
   estimated_cost_eth: number;
   reasoning: string;
+  mint?: string;
 }): Promise<void> {
   if (!getBotToken()) return;
 
@@ -986,24 +987,52 @@ export async function sendProposalToTelegram(proposal: {
   if (allChatIds.length === 0) return;
 
   const confPct = (proposal.confidence * 100).toFixed(0);
-  const text = [
+  const lines = [
     `🚀 <b>COOKING Proposal — $${proposal.symbol}</b>`,
     ``,
     `Confidence: <b>${confPct}%</b>`,
     `Platform: ${proposal.platform}`,
     `Cost: ${proposal.estimated_cost_eth} ETH`,
     ``,
+  ];
+
+  if (proposal.mint) {
+    lines.push(
+      `Contract: <code>${proposal.mint}</code>`,
+      ``,
+    );
+  }
+
+  lines.push(
     `<i>${proposal.reasoning}</i>`,
     ``,
-    `ID: <code>${proposal.decision_id}</code>`,
-  ].join("\n");
+  );
 
-  const inlineKeyboard = [
+  if (proposal.mint) {
+    lines.push(
+      `<a href="https://dexscreener.com/robinhood/${proposal.mint}">View on Dexscreener</a>`,
+      `<a href="https://robinhoodchain.blockscout.com/address/${proposal.mint}">View on Blockscout</a>`,
+      ``,
+    );
+  }
+
+  lines.push(`ID: <code>${proposal.decision_id}</code>`);
+
+  const text = lines.join("\n");
+
+  const inlineKeyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [
     [
       { text: "Approve ✅", callback_data: `approve:${proposal.decision_id}` },
       { text: "Reject ❌", callback_data: `reject:${proposal.decision_id}` },
     ],
   ];
+
+  if (proposal.mint) {
+    inlineKeyboard.push([
+      { text: "View on Dexscreener", url: `https://dexscreener.com/robinhood/${proposal.mint}` },
+      { text: "View on Blockscout", url: `https://robinhoodchain.blockscout.com/address/${proposal.mint}` },
+    ]);
+  }
 
   for (const chatId of allChatIds) {
     await sendMessage(chatId, text, { reply_markup: { inline_keyboard: inlineKeyboard } });
@@ -1207,19 +1236,23 @@ export async function sendGuardianAlertToTelegram(alert: {
     alert.message,
   ];
 
-  if (alert.tokenAddress && alert.type === "stop_loss") {
+  if (alert.tokenAddress) {
     lines.push(
       ``,
-      `<b>Sell all for ETH?</b>`,
-      ``,
+      `Contract: <code>${alert.tokenAddress}</code>`,
       `<a href="https://dexscreener.com/robinhood/${alert.tokenAddress}">View on Dexscreener</a>`,
+      `<a href="https://robinhoodchain.blockscout.com/address/${alert.tokenAddress}">View on Blockscout</a>`,
     );
+  }
+
+  if (alert.tokenAddress && (alert.type === "stop_loss" || alert.type === "take_profit" || alert.type === "trailing_stop")) {
+    lines.push(``, `<b>Sell all for ETH?</b>`);
   }
 
   const text = lines.join("\n");
 
   const inlineKeyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
-  if (alert.tokenAddress && (alert.type === "stop_loss" || alert.type === "take_profit")) {
+  if (alert.tokenAddress && (alert.type === "stop_loss" || alert.type === "take_profit" || alert.type === "trailing_stop")) {
     inlineKeyboard.push([
       { text: "Confirm Sell", callback_data: `confirm_sell:${alert.tokenAddress}:100` },
       { text: "Hold", callback_data: `skip_action` },

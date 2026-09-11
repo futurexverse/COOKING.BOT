@@ -162,7 +162,7 @@ export async function runSnipeScanAndAlert(): Promise<void> {
 
   const { sendSnipeAlertToTelegram } = await import("../social/telegram-bot.js");
 
-  for (const candidate of candidates.slice(0, 3)) {
+  for (const candidate of candidates.slice(0, 1)) {
     console.log(`[SnipeScanner] Alerting for: ${candidate.symbol} (score: ${candidate.score}%)`);
     await sendSnipeAlertToTelegram(candidate);
     markAsSniped(candidate.address);

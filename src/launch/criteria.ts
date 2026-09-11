@@ -187,6 +187,7 @@ export async function evaluateLaunchConditions(
       platform: proposal.platform,
       estimated_cost_eth: proposal.estimated_cost_eth,
       reasoning: proposal.reasoning,
+      mint: proposal.signal?.mint,
     }).catch(() => {});
   }
 

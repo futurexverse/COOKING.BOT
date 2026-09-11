@@ -51,13 +51,10 @@ async function sendTelegramAlert(
   mint: string
 ): Promise<void> {
   try {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatIds = (process.env.TELEGRAM_CHAT_ID || process.env.TELEGRAM_CHAT_IDS || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const { getAllChatIds } = await import("../social/telegram-bot.js");
 
-    if (!botToken || chatIds.length === 0) return;
+    const allChatIds = getAllChatIds();
+    if (allChatIds.length === 0) return;
 
     const emoji =
       alert.severity === "critical"
@@ -67,31 +64,32 @@ async function sendTelegramAlert(
           : "\u2139\uFE0F";
 
     const text = [
-      `${emoji} *COOKING Alert — $${symbol}*`,
+      `${emoji} <b>GUARDIAN ALERT — $${symbol}</b>`,
       "",
       alert.message,
       "",
-      `Mint: \`${mint}\``,
-      `[View on Solscan](https://solscan.io/token/${mint})`,
+      `Contract: <code>${mint}</code>`,
+      `<a href="https://dexscreener.com/robinhood/${mint}">View on Dexscreener</a>`,
+      `<a href="https://robinhoodchain.blockscout.com/address/${mint}">View on Blockscout</a>`,
     ].join("\n");
 
-    for (const chatId of chatIds) {
+    for (const chatId of allChatIds) {
       await fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
+        `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
             text,
-            parse_mode: "Markdown",
+            parse_mode: "HTML",
             disable_web_page_preview: true,
           }),
         }
       );
     }
 
-    console.log(`[Alert] Telegram sent to ${chatIds.length} chat(s)`);
+    console.log(`[Alert] Telegram sent to ${allChatIds.length} chats`);
   } catch (err) {
     console.error("[Alert] Telegram send failed:", err);
   }
