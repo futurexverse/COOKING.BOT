@@ -1,4 +1,5 @@
 import { processApproval, getPendingProposals } from "./approval.js";
+import { appendToVariable, isRailwayPersistAvailable } from "./railway-persist.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -62,6 +63,10 @@ export function addUserId(id: string): void {
     ids.push(id);
     saveUserIds(ids);
     console.log(`[Telegram] Registered user: ${id}`);
+
+    if (isRailwayPersistAvailable()) {
+      appendToVariable("REGISTERED_USER_IDS", id).catch(() => {});
+    }
   }
 }
 
@@ -84,7 +89,13 @@ export function getAllChatIds(): string[] {
   const envIds = getChatIds();
   const groupIds = loadGroupIds();
   const userIds = loadUserIds();
-  const combined = new Set([...envIds, ...groupIds, ...userIds]);
+
+  const persistedIds = (process.env.REGISTERED_USER_IDS || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const combined = new Set([...envIds, ...groupIds, ...userIds, ...persistedIds]);
   return Array.from(combined);
 }
 
