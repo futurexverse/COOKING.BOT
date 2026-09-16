@@ -8,7 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #F59E0B; --accent-glow: rgba(245,158,11,0.5); --bg-blur: 20px; }
-        body { font-family: 'Outfit', sans-serif; background-color: #050505; color: #fafafa; overflow-x: hidden; background-image: url('/assets/cooking-bg.png'); background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh; }
+        body { font-family: 'Outfit', sans-serif; background-color: #050505; color: #fafafa; overflow-x: hidden; min-height: 100vh; }
+        body.auth-locked { overflow: hidden; background-color: #000000; background-image: none !important; }
+        body.auth-locked .bg-overlay { display: none; }
+        body:not(.auth-locked) { background-image: url('/assets/cooking-bg.png'); background-size: cover; background-position: center; background-attachment: fixed; }
         .bg-overlay { position: fixed; inset: 0; background: linear-gradient(to bottom, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.95) 100%); z-index: -1; }
         .glass { background: rgba(15,15,15,0.6); backdrop-filter: blur(var(--bg-blur)); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.8); }
         .glass-hover:hover { border-color: rgba(59,130,246,0.3); background: rgba(20,20,20,0.7); transform: translateY(-2px); }
@@ -38,7 +41,7 @@
     <div class="bg-overlay"></div>
 
     <!-- AUTH MODAL -->
-    <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center" style="background:#000000;">
         <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 space-y-6">
             <div class="text-center space-y-2">
                 <img src="/assets/cooking-logo.png" alt="COOKING" class="w-16 h-16 rounded-xl mx-auto shadow-lg shadow-amber-500/20">
@@ -1536,6 +1539,7 @@
                     localStorage.setItem('cooking_auth_token', result.token);
                     authToken = result.token;
                     document.getElementById('auth-modal').classList.add('hidden');
+                    document.body.classList.remove('auth-locked');
                     loadUserProfile();
                 } else {
                     errorDiv.textContent = result.error || 'Authentication failed';
@@ -1554,6 +1558,7 @@
             localStorage.removeItem('cooking_auth_token');
             authToken = null;
             document.getElementById('auth-modal').classList.remove('hidden');
+            document.body.classList.add('auth-locked');
             document.getElementById('auth-email').value = '';
             document.getElementById('auth-password').value = '';
             document.getElementById('user-greeting').classList.add('hidden');
@@ -1571,10 +1576,12 @@
                 if (!resp.ok) {
                     localStorage.removeItem('cooking_auth_token');
                     document.getElementById('auth-modal').classList.remove('hidden');
+                    document.body.classList.add('auth-locked');
                     return;
                 }
                 const user = await resp.json();
                 document.getElementById('auth-modal').classList.add('hidden');
+                document.body.classList.remove('auth-locked');
                 document.getElementById('user-greeting').classList.remove('hidden');
 
                 const name = user.email.split('@')[0];
@@ -1634,6 +1641,7 @@
             loadUserProfile();
         } else {
             document.getElementById('auth-modal').classList.remove('hidden');
+            document.body.classList.add('auth-locked');
         }
     </script>
 </body>

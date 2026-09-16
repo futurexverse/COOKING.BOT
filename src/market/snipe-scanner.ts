@@ -192,15 +192,69 @@ export async function scanForSnipes(): Promise<SnipeCandidate[]> {
     console.error("[SnipeScanner] Dexscreener boost scan error:", err);
   }
 
-  // Source 2: GMGN Robinhood trending
+  // Source 2: Birdeye Robinhood + Solana trending
   try {
-    const { fetchGmgnTrending } = await import("./sources/gmgn.js");
-    const gmgnTokens = await fetchGmgnTrending("robinhood", "5m", 20);
+    const { fetchBirdeyeTrending } = await import("./sources/birdeye.js");
+    const [birdeyeRobinhood, birdeyeSolana] = await Promise.all([
+      fetchBirdeyeTrending("robinhood", 20),
+      fetchBirdeyeTrending("solana", 20),
+    ]);
 
-    for (const token of gmgnTokens) {
+    for (const token of [...birdeyeRobinhood, ...birdeyeSolana]) {
       if (!token.mint || isAlreadySniped(token.mint)) continue;
 
-      const holders = token.holders || await fetchHolders(token.mint, "robinhood");
+      const chain = token.chain || "robinhood";
+      const holders = token.holders || await fetchHolders(token.mint, chain);
+
+      let score = 0;
+      const vol = token.volume_24h;
+      if (vol > 50000) score += 25;
+      else if (vol > 20000) score += 20;
+      else if (vol > 5000) score += 15;
+      else if (vol > 1500) score += 10;
+
+      if (token.liquidity > 50000) score += 25;
+      else if (token.liquidity > 20000) score += 20;
+      else if (token.liquidity > 10000) score += 15;
+      else if (token.liquidity > 5000) score += 10;
+
+      if (token.change_24h > 10) score += 25;
+      else if (token.change_24h > 5) score += 20;
+      else if (token.change_24h > 0) score += 15;
+      else if (token.change_24h > -5) score += 10;
+
+      if (holders > 100) score += 15;
+      else if (holders > 50) score += 10;
+      else if (holders > 20) score += 5;
+
+      if (score >= 70) {
+        allCandidates.push({
+          symbol: token.symbol,
+          name: token.name || token.symbol,
+          address: token.mint,
+          chain,
+          score,
+          volume_24h: vol,
+          liquidity: token.liquidity,
+          holders,
+          price: token.price,
+          change_24h: token.change_24h,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[SnipeScanner] Birdeye scan error:", err);
+  }
+
+  // Source 3: Pump.fun Solana trending
+  try {
+    const { fetchPumpFunTrending } = await import("./sources/pumpfun.js");
+    const pumpfunTokens = await fetchPumpFunTrending();
+
+    for (const token of pumpfunTokens) {
+      if (!token.mint || isAlreadySniped(token.mint)) continue;
+
+      const holders = token.holders || await fetchHolders(token.mint, "solana");
 
       let score = 0;
       const vol = token.volume_24h;
@@ -228,7 +282,7 @@ export async function scanForSnipes(): Promise<SnipeCandidate[]> {
           symbol: token.symbol,
           name: token.name || token.symbol,
           address: token.mint!,
-          chain: "robinhood",
+          chain: "solana",
           score,
           volume_24h: vol,
           liquidity: token.liquidity,
@@ -239,7 +293,57 @@ export async function scanForSnipes(): Promise<SnipeCandidate[]> {
       }
     }
   } catch (err) {
-    console.error("[SnipeScanner] GMGN scan error:", err);
+    console.error("[SnipeScanner] PumpFun scan error:", err);
+  }
+
+  // Source 4: Raydium Solana trending
+  try {
+    const { fetchRaydiumTrending } = await import("./sources/raydium.js");
+    const raydiumTokens = await fetchRaydiumTrending(20);
+
+    for (const token of raydiumTokens) {
+      if (!token.mint || isAlreadySniped(token.mint)) continue;
+
+      const holders = token.holders || await fetchHolders(token.mint, "solana");
+
+      let score = 0;
+      const vol = token.volume_24h;
+      if (vol > 50000) score += 25;
+      else if (vol > 20000) score += 20;
+      else if (vol > 5000) score += 15;
+      else if (vol > 1500) score += 10;
+
+      if (token.liquidity > 50000) score += 25;
+      else if (token.liquidity > 20000) score += 20;
+      else if (token.liquidity > 10000) score += 15;
+      else if (token.liquidity > 5000) score += 10;
+
+      if (token.change_24h > 10) score += 25;
+      else if (token.change_24h > 5) score += 20;
+      else if (token.change_24h > 0) score += 15;
+      else if (token.change_24h > -5) score += 10;
+
+      if (holders > 100) score += 15;
+      else if (holders > 50) score += 10;
+      else if (holders > 20) score += 5;
+
+      if (score >= 70) {
+        allCandidates.push({
+          symbol: token.symbol,
+          name: token.name || token.symbol,
+          address: token.mint!,
+          chain: "solana",
+          score,
+          volume_24h: vol,
+          liquidity: token.liquidity,
+          holders,
+          price: token.price,
+          change_24h: token.change_24h,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[SnipeScanner] Raydium scan error:", err);
   }
 
   // Deduplicate by address

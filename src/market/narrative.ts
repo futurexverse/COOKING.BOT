@@ -1,5 +1,7 @@
 import { fetchUniswapTopPools, fetchDexscreenerRobinhood } from "./sources/uniswap.js";
-import { fetchGmgnTrending } from "./sources/gmgn.js";
+import { fetchBirdeyeTrending } from "./sources/birdeye.js";
+import { fetchPumpFunTrending } from "./sources/pumpfun.js";
+import { fetchRaydiumTrending } from "./sources/raydium.js";
 import { analyzeNarrative, type NarrativeAnalysis, type NarrativeToken } from "./sources/openai.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
@@ -79,19 +81,25 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
 
   console.log("[Narrative] Fetching trending tokens from multiple sources...");
 
-  const [dexTokens, dexRobinhood, gmgnRobinhood] = await Promise.allSettled([
+  const [dexTokens, dexRobinhood, birdeyeRobinhood, birdeyeSolana, pumpfunTokens, raydiumTokens] = await Promise.allSettled([
     fetchUniswapTopPools(50),
     fetchDexscreenerRobinhood(30),
-    fetchGmgnTrending("robinhood", "5m", 30),
+    fetchBirdeyeTrending("robinhood", 30),
+    fetchBirdeyeTrending("solana", 30),
+    fetchPumpFunTrending(),
+    fetchRaydiumTrending(30),
   ]);
 
   const allTokens = [
     ...(dexTokens.status === "fulfilled" ? dexTokens.value : []),
     ...(dexRobinhood.status === "fulfilled" ? dexRobinhood.value : []),
-    ...(gmgnRobinhood.status === "fulfilled" ? gmgnRobinhood.value : []),
+    ...(birdeyeRobinhood.status === "fulfilled" ? birdeyeRobinhood.value : []),
+    ...(birdeyeSolana.status === "fulfilled" ? birdeyeSolana.value : []),
+    ...(pumpfunTokens.status === "fulfilled" ? pumpfunTokens.value : []),
+    ...(raydiumTokens.status === "fulfilled" ? raydiumTokens.value : []),
   ];
 
-  console.log(`[Narrative] Got ${allTokens.length} tokens total (Dexscreener: ${dexTokens.status === "fulfilled" ? dexTokens.value.length : 0}, Robinhood: ${dexRobinhood.status === "fulfilled" ? dexRobinhood.value.length : 0}, GMGN: ${gmgnRobinhood.status === "fulfilled" ? gmgnRobinhood.value.length : 0})`);
+  console.log(`[Narrative] Got ${allTokens.length} tokens total (Dexscreener: ${dexTokens.status === "fulfilled" ? dexTokens.value.length : 0}, Robinhood: ${dexRobinhood.status === "fulfilled" ? dexRobinhood.value.length : 0}, Birdeye-RH: ${birdeyeRobinhood.status === "fulfilled" ? birdeyeRobinhood.value.length : 0}, Birdeye-SOL: ${birdeyeSolana.status === "fulfilled" ? birdeyeSolana.value.length : 0}, PumpFun: ${pumpfunTokens.status === "fulfilled" ? pumpfunTokens.value.length : 0}, Raydium: ${raydiumTokens.status === "fulfilled" ? raydiumTokens.value.length : 0})`);
 
   if (allTokens.length === 0) {
     console.log("[Narrative] No token data available, using cached or fallback");
