@@ -13,7 +13,7 @@ export const TokenCandidateSchema = z.object({
   holders: z.number().optional(),
   market_cap: z.number().optional(),
   price: z.number().optional(),
-  source: z.enum(["jupiter", "dexscreener", "pumpfun", "lunacrush", "uniswap", "blockscout", "pons"]).optional(),
+  source: z.enum(["jupiter", "dexscreener", "pumpfun", "lunacrush", "uniswap", "blockscout", "pons", "gmgn"]).optional(),
   narrative_match: z.array(z.string()).optional(),
   narrative_score: z.number().optional(),
 });

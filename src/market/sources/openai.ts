@@ -26,18 +26,18 @@ export interface NarrativeAnalysis {
   raw_response?: string;
 }
 
-const SYSTEM_PROMPT = `You are COOKING, an AI mid-cap token analyst. You analyze trending MID-CAP tokens across multiple blockchains to identify the hottest narratives for GROWTH opportunities.
+const SYSTEM_PROMPT = `You are COOKING, an AI token analyst. You analyze trending tokens on Robinhood Chain and Solana to identify the hottest narratives for GROWTH opportunities.
 
-You will receive a list of trending tokens with their symbols, names, addresses, chains, volume, market cap, holders, and 24h price change. ALL tokens are already filtered to mid-cap range ($20K-$10M market cap).
+You will receive a list of trending tokens with their symbols, names, addresses, chains, 5-minute volume, market cap, holders, and price change. ALL tokens are already filtered to $10K-$500K market cap range.
 
-Your job: Identify the TOP 5 trending narratives (themes, memes, sectors) that are HOT RIGHT NOW for mid-cap growth.
+Your job: Identify the TOP 5 trending narratives (themes, memes, sectors) that are HOT RIGHT NOW for growth.
 
 CRITICAL RULES:
-1. MID-CAP FOCUS: These are growth coins — not established giants. Focus on momentum and breakout potential.
+1. MICRO-CAP FOCUS: These are early-stage coins — $10K-$500K market cap. Focus on momentum and breakout potential.
 2. DIVERSITY: Each narrative must be DISTINCT. No overlapping themes. If you pick "AI agents", don't also pick "AI tokens" or "AI companions".
 3. TOKEN EXAMPLES: For each narrative, pick the TOP 2-3 tokens that represent that theme. Use the EXACT contract addresses from the data provided.
-4. NO REPETITION: Do not repeat themes. Vary between: memes, DeFi, RWA, gaming, infrastructure, SocialFi, political, animals, culture, L2, restaking.
-5. GROWTH SIGNAL: Prioritize tokens with volume spikes, holder growth, and positive price action.
+4. NO REPETITION: Do not repeat themes. Vary between: memes, DeFi, RWA, gaming, infrastructure, SocialFi, political, animals, culture.
+5. GROWTH SIGNAL: Prioritize tokens with 5-minute volume spikes, holder growth, and positive price action.
 6. USE REAL DATA: Only use tokens from the provided list. Do not make up addresses.
 
 Return a JSON object with this EXACT structure:
@@ -46,8 +46,8 @@ Return a JSON object with this EXACT structure:
   "theme_scores": {"narrative1": 85, "narrative2": 72, "narrative3": 68, "narrative4": 55, "narrative5": 48},
   "tokens_per_narrative": {
     "narrative1": [
-      {"symbol": "SYM1", "address": "0x...", "chain": "chain", "market_cap": 1234567, "volume_24h": 500000, "change_24h": 15.2, "dexscreener_url": "https://dexscreener.com/chain/0x..."},
-      {"symbol": "SYM2", "address": "0x...", "chain": "chain", "market_cap": 2345678, "volume_24h": 300000, "change_24h": 8.1, "dexscreener_url": "https://dexscreener.com/chain/0x..."}
+      {"symbol": "SYM1", "address": "0x...", "chain": "chain", "market_cap": 123456, "volume_24h": 500000, "change_24h": 15.2, "dexscreener_url": "https://dexscreener.com/chain/0x..."},
+      {"symbol": "SYM2", "address": "0x...", "chain": "chain", "market_cap": 234567, "volume_24h": 300000, "change_24h": 8.1, "dexscreener_url": "https://dexscreener.com/chain/0x..."}
     ]
   },
   "reasoning": "2-3 sentences explaining why these narratives are hot. Reference specific tokens and metrics."
@@ -68,7 +68,8 @@ function extractJsonFromText(text: string): Record<string, unknown> | null {
 
 export async function analyzeNarrative(
   tokenData: Array<{ symbol: string; name?: string; address?: string; chain?: string; volume_24h?: number; market_cap?: number; holders?: number; change_24h?: number }>,
-  calledTokens: string[] = []
+  calledTokens: string[] = [],
+  recentNarratives: string[] = []
 ): Promise<NarrativeAnalysis> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -106,12 +107,16 @@ export async function analyzeNarrative(
   // Sort by volume for better analysis
   tokenSummary.sort((a, b) => b.vol - a.vol);
 
-  const userMessage = `Analyze these trending tokens and identify the TOP 3 diverse narratives. For each narrative, pick 1 token with its exact address.
+  const recentContext = recentNarratives.length > 0
+    ? `\n\nIMPORTANT: DO NOT repeat these recently used narratives: ${recentNarratives.join(", ")}. Pick completely different themes.`
+    : "";
+
+  const userMessage = `Analyze these trending tokens on Robinhood Chain and Solana and identify the TOP 3 diverse narratives. For each narrative, pick 1 token with its exact address.${recentContext}
 
 Tokens: ${JSON.stringify(tokenSummary)}
 
 Respond with ONLY this JSON:
-{"trending_narratives":["narrative1","narrative2","narrative3"],"theme_scores":{"narrative1":90,"narrative2":80,"narrative3":70},"tokens_per_narrative":{"narrative1":[{"symbol":"SYM","address":"0x...","chain":"solana","market_cap":100000,"volume_24h":500000,"change_24h":150}]},"reasoning":"brief reason"}`;
+{"trending_narratives":["narrative1","narrative2","narrative3"],"theme_scores":{"narrative1":90,"narrative2":80,"narrative3":70},"tokens_per_narrative":{"narrative1":[{"symbol":"SYM","address":"0x...","chain":"robinhood","market_cap":100000,"volume_24h":500000,"change_24h":150}]},"reasoning":"brief reason"}`;
 
   try {
     const url = `${GROQ_BASE}/chat/completions`;
@@ -228,6 +233,6 @@ function fallbackAnalysis(): NarrativeAnalysis {
     trending_narratives: ["AI agents", "PolitiFi", "Cat coins", "RWA tokenization", "DePIN"],
     theme_scores: { "AI agents": 75, "PolitiFi": 65, "Cat coins": 60, "RWA tokenization": 50, "DePIN": 45 },
     tokens_per_narrative: {},
-    reasoning: "Default analysis — connect Groq API key for live narrative detection.",
+    reasoning: "Default analysis — connect API key for live narrative detection.",
   };
 }

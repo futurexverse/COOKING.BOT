@@ -7,12 +7,12 @@ interface DexscreenerPair {
   baseToken: { address: string; name: string; symbol: string };
   quoteToken: { address: string; name: string; symbol: string };
   priceUsd: string;
-  volume: { h24: number; h6: number; h1: number };
-  priceChange: { h24: number; h6: number; h1: number };
+  volume: { h24: number; h6: number; h1: number; m5: number };
+  priceChange: { h24: number; h6: number; h1: number; m5: number };
   liquidity: { usd: number; base: number; quote: number };
   fdv: number;
   marketCap: number;
-  txns: { h24: { buys: number; sells: number } };
+  txns: { h24: { buys: number; sells: number }; h1: { buys: number; sells: number }; m5: { buys: number; sells: number } };
 }
 
 interface DexscreenerBoost {
@@ -24,21 +24,11 @@ interface DexscreenerBoost {
 
 const CHAIN_NAMES: Record<string, string> = {
   solana: "Solana",
-  ethereum: "Ethereum",
-  base: "Base",
-  bsc: "BSC",
-  arbitrum: "Arbitrum",
-  polygon: "Polygon",
-  avalanche: "Avalanche",
-  optimism: "Optimism",
-  tron: "Tron",
-  sui: "Sui",
-  aptos: "Aptos",
+  robinhood: "Robinhood",
 };
 
 const SUPPORTED_CHAINS = new Set([
-  "solana", "ethereum", "base", "bsc", "arbitrum",
-  "polygon", "avalanche", "optimism", "tron", "sui", "aptos",
+  "solana", "robinhood",
 ]);
 
 export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]> {
@@ -86,21 +76,21 @@ export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]
           if (pair.chainId !== chainId) continue;
           const addr = pair.baseToken.address.toLowerCase();
           const existing = bestByVolume.get(addr);
-          if (!existing || (pair.volume?.h24 || 0) > (existing.volume?.h24 || 0)) {
+          if (!existing || (pair.volume?.m5 || pair.volume?.h1 || 0) > (existing.volume?.m5 || existing.volume?.h1 || 0)) {
             bestByVolume.set(addr, pair);
           }
         }
 
         for (const pair of bestByVolume.values()) {
-          const vol = pair.volume?.h24 || 0;
+          const vol = pair.volume?.m5 || pair.volume?.h1 || 0;
           const liq = pair.liquidity?.usd || 0;
           const mc = pair.marketCap || pair.fdv || 0;
-          if (vol < 10000 || liq < 5000) continue;
 
-          // Filter: mid-cap only ($20K - $10M)
-          if (mc > 10000000) continue; // Skip big tokens
-          if (mc < 20000 && mc > 0) continue; // Skip micro caps
-          if (mc === 0) continue; // Skip unknown market cap
+          if (vol < 1500) continue;
+          if (liq < 5000) continue;
+          if (mc > 500000) continue;
+          if (mc < 10000 && mc > 0) continue;
+          if (mc === 0) continue;
 
           results.push({
             symbol: pair.baseToken.symbol?.toUpperCase() || "?",
@@ -111,7 +101,7 @@ export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]
             change_1h: pair.priceChange?.h1 || 0,
             volume_24h: vol,
             liquidity: liq,
-            holders: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
+            holders: (pair.txns?.h1?.buys || 0) + (pair.txns?.h1?.sells || 0),
             market_cap: pair.marketCap || pair.fdv || 0,
             price: parseFloat(pair.priceUsd) || 0,
             source: "dexscreener" as const,
@@ -129,7 +119,7 @@ export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]
     for (const [chainId] of grouped) {
       const chainTokens = sliced.filter((t) => t.chain === chainId);
       if (chainTokens.length > 0) {
-        console.log(`  ${CHAIN_NAMES[chainId] || chainId}: ${chainTokens.length} tokens (top: $${chainTokens[0].symbol}, $${(chainTokens[0].volume_24h / 1e6).toFixed(1)}M vol)`);
+        console.log(`  ${CHAIN_NAMES[chainId] || chainId}: ${chainTokens.length} tokens (top: $${chainTokens[0].symbol}, Vol: $${chainTokens[0].volume_24h})`);
       }
     }
 
@@ -137,6 +127,105 @@ export async function fetchUniswapTopPools(limit = 20): Promise<TokenCandidate[]
   } catch (err) {
     console.error("[Dexscreener] fetch failed:", err);
     return [];
+  }
+}
+
+export async function fetchDexscreenerRobinhood(limit = 30): Promise<TokenCandidate[]> {
+  try {
+    console.log("[Dexscreener] Fetching Robinhood trending tokens...");
+    const resp = await fetch(
+      "https://api.dexscreener.com/latest/dex/search?q=robinhood",
+      { signal: AbortSignal.timeout(15000) }
+    );
+
+    if (!resp.ok) return [];
+    const data = await resp.json() as { pairs: DexscreenerPair[] };
+    if (!data.pairs) return [];
+
+    const robinhoodPairs = data.pairs.filter((p) => p.chainId === "robinhood");
+
+    const bestByToken = new Map<string, DexscreenerPair>();
+    for (const pair of robinhoodPairs) {
+      const addr = pair.baseToken.address.toLowerCase();
+      const existing = bestByToken.get(addr);
+      if (!existing || (pair.volume?.m5 || pair.volume?.h1 || 0) > (existing.volume?.m5 || existing.volume?.h1 || 0)) {
+        bestByToken.set(addr, pair);
+      }
+    }
+
+    const results: TokenCandidate[] = [];
+    for (const pair of bestByToken.values()) {
+      const vol = pair.volume?.m5 || pair.volume?.h1 || 0;
+      const liq = pair.liquidity?.usd || 0;
+      const mc = pair.marketCap || pair.fdv || 0;
+
+      if (vol < 1500) continue;
+      if (liq < 5000) continue;
+      if (mc > 500000) continue;
+      if (mc < 10000 && mc > 0) continue;
+      if (mc === 0) continue;
+
+      results.push({
+        symbol: pair.baseToken.symbol?.toUpperCase() || "?",
+        name: pair.baseToken.name || "Unknown",
+        mint: pair.baseToken.address,
+        chain: "robinhood",
+        change_24h: pair.priceChange?.h24 || 0,
+        change_1h: pair.priceChange?.h1 || 0,
+        volume_24h: vol,
+        liquidity: liq,
+        holders: (pair.txns?.h1?.buys || 0) + (pair.txns?.h1?.sells || 0),
+        market_cap: mc,
+        price: parseFloat(pair.priceUsd) || 0,
+        source: "dexscreener" as const,
+      });
+    }
+
+    results.sort((a, b) => b.volume_24h - a.volume_24h);
+    const sliced = results.slice(0, limit);
+    console.log(`[Dexscreener] Got ${sliced.length} Robinhood tokens from search`);
+    return sliced;
+  } catch (err) {
+    console.error("[Dexscreener] Robinhood search failed:", err);
+    return [];
+  }
+}
+
+export async function lookupTokenByAddress(address: string): Promise<TokenCandidate | null> {
+  try {
+    const resp = await fetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${address}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+
+    if (!resp.ok) return null;
+    const data = await resp.json() as { pairs: DexscreenerPair[] };
+    if (!data.pairs || data.pairs.length === 0) return null;
+
+    const pair = data.pairs.find((p) =>
+      p.baseToken.address.toLowerCase() === address.toLowerCase()
+    ) || data.pairs[0];
+
+    const vol = pair.volume?.m5 || pair.volume?.h1 || pair.volume?.h24 || 0;
+    const liq = pair.liquidity?.usd || 0;
+    const mc = pair.marketCap || pair.fdv || 0;
+
+    return {
+      symbol: pair.baseToken.symbol?.toUpperCase() || "?",
+      name: pair.baseToken.name || "Unknown",
+      mint: pair.baseToken.address,
+      chain: pair.chainId,
+      change_24h: pair.priceChange?.h24 || 0,
+      change_1h: pair.priceChange?.h1 || 0,
+      volume_24h: vol,
+      liquidity: liq,
+      holders: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
+      market_cap: mc,
+      price: parseFloat(pair.priceUsd) || 0,
+      source: "dexscreener" as const,
+    };
+  } catch {
+    return null;
   }
 }
 

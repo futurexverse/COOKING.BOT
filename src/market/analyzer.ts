@@ -20,12 +20,35 @@ import {
 } from "./scoring.js";
 import { randomUUID } from "crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
-let lastNarrativeSentAt = 0;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = join(__dirname, "..", "..");
+
+let lastNarrativeSentAt = loadNarrativeTimestamp();
 
 const DATA_DIR = process.env.ORACLE_DATA_DIR || "data";
 const DECISIONS_FILE = join(DATA_DIR, "decisions.json");
+const NARRATIVE_TS_FILE = join(ROOT_DIR, "data", "narrative_sent_at.json");
+
+function loadNarrativeTimestamp(): number {
+  try {
+    if (existsSync(NARRATIVE_TS_FILE)) {
+      const data = JSON.parse(readFileSync(NARRATIVE_TS_FILE, "utf-8"));
+      return data.timestamp || 0;
+    }
+  } catch {}
+  return 0;
+}
+
+function saveNarrativeTimestamp(ts: number): void {
+  try {
+    const dir = dirname(NARRATIVE_TS_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(NARRATIVE_TS_FILE, JSON.stringify({ timestamp: ts }));
+  } catch {}
+}
 
 const decisions: EnrichedDecision[] = [];
 let lastScoredTokens: ScoredSignal[] = [];
@@ -77,14 +100,32 @@ export async function analyzeMarket(
 
     const now = Date.now();
     if (narrativeAnalysis && now - lastNarrativeSentAt > 600000) {
-      lastNarrativeSentAt = now;
-      const { sendNarrativeToTelegram } = await import("../social/telegram-bot.js");
-      sendNarrativeToTelegram({
-        trending_narratives: narrativeAnalysis.trending_narratives,
-        theme_scores: narrativeAnalysis.theme_scores,
-        tokens_per_narrative: narrativeAnalysis.tokens_per_narrative,
-        reasoning: narrativeAnalysis.reasoning,
-      }).catch(() => {});
+      const { getCalledTokens } = await import("./narrative.js");
+      const calledBefore = getCalledTokens();
+
+      const allNarrativeTokens: string[] = [];
+      for (const tokens of Object.values(narrativeAnalysis.tokens_per_narrative)) {
+        for (const t of tokens) {
+          allNarrativeTokens.push((t.address || "").toLowerCase());
+        }
+      }
+
+      const newTokens = allNarrativeTokens.filter(addr => addr && !calledBefore.includes(addr));
+
+      if (newTokens.length > 0) {
+        lastNarrativeSentAt = now;
+        saveNarrativeTimestamp(now);
+        const { sendNarrativeToTelegram } = await import("../social/telegram-bot.js");
+        sendNarrativeToTelegram({
+          trending_narratives: narrativeAnalysis.trending_narratives,
+          theme_scores: narrativeAnalysis.theme_scores,
+          tokens_per_narrative: narrativeAnalysis.tokens_per_narrative,
+          reasoning: narrativeAnalysis.reasoning,
+        }).catch(() => {});
+        console.log(`[Analyzer] Narrative notification sent (${newTokens.length} new tokens)`);
+      } else {
+        console.log("[Analyzer] Narrative skipped — no new tokens since last notification");
+      }
     }
   } catch (err) {
     console.error("[Analyzer] Narrative refresh failed:", (err as Error).message);

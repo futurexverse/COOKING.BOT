@@ -12,6 +12,8 @@ const USER_IDS_FILE = join(ROOT_DIR, "data", "user_ids.json");
 let lastUpdateId = 0;
 let polling = false;
 
+const pendingActions = new Map<string, { type: "buy" | "sell"; tokenAddress: string; chain?: string }>();
+
 function getBotToken(): string {
   return process.env.TELEGRAM_BOT_TOKEN || "";
 }
@@ -178,24 +180,74 @@ async function getBotInfo(): Promise<{ id: number; username: string } | null> {
   return null;
 }
 
-const QA: Record<string, string> = {
-  greet: `<b>Hey! Welcome to COOKING.</b>\n\nI'm your autonomous Robinhood Chain token sniper. I scan Dexscreener trending tokens across ALL chains, score them with AI, propose launches via PONS, trade with Uniswap V3, and guard your positions — all on autopilot.\n\n<b>Dashboard:</b> https://cookingbot-production-bcf3.up.railway.app\n\n<b>Ask me anything:</b>\n\n/scoring - How the scoring algorithm works\n/launch - How token launching works\n/guardian - Post-launch monitoring\n/narrative - AI narrative detection\n/costs - What it costs\n/wallet - Wallet & funding info\n/buy - Buy a token\n/sell - Sell a token\n/trades - View trade history\n/bal - Check balance\n/positions - Guardian positions\n/snipe - Snipe opportunities\n/heat - Market heat explained\n/config - Current thresholds\n/proposals - View pending launches\n/status - System status\n/help - All commands\n\n<i>If you stop receiving alerts, message the bot again to re-register.</i>`,
+async function handleGreet(): Promise<string> {
+  let walletAddress = "Loading...";
+  let walletBalance = "0.0000";
+  try {
+    const { getWalletAddress, getBalance } = await import("../wallet/wallet.js");
+    walletAddress = getWalletAddress();
+    const bal = await getBalance();
+    walletBalance = parseFloat(bal.eth).toFixed(4);
+  } catch {}
 
+  return [
+    `<b>Hey! Welcome to COOKING.</b>`,
+    ``,
+    `I'm your autonomous Robinhood Chain token sniper. I scan Dexscreener trending tokens across ALL chains, score them with AI, propose launches via PONS, trade with Uniswap V3, and guard your positions — all on autopilot.`,
+    ``,
+    `<b>Dashboard:</b> https://cookingbot-production-bcf3.up.railway.app`,
+    ``,
+    `<b>💰 WALLET — Deposit ETH Here:</b>`,
+    `<code>${walletAddress}</code>`,
+    `<b>Balance:</b> ${walletBalance} ETH`,
+    `<a href="https://robinhoodchain.blockscout.com/address/${walletAddress}">View on Blockscout</a>`,
+    ``,
+    `<b>📊 HOW TRADING WORKS:</b>`,
+    `<b>Buy:</b> Tap approve on snipe/proposal alerts, or use /buy &lt;token&gt; &lt;eth&gt;`,
+    `<b>Sell:</b> Use /sell &lt;token&gt; [pct], or tap the sell button on guardian alerts`,
+    `<b>Execution:</b> All trades run on Uniswap V3 on Robinhood Chain`,
+    `<b>Approval:</b> Every trade requires your confirmation — nothing happens without your tap`,
+    ``,
+    `<b>🛡️ GUARDIAN / STOP-LOSS:</b>`,
+    `After you buy a token, guardian monitors it 24/7:`,
+    `<b>Stop-loss:</b> Price drops -30% → sell button sent to you → you confirm`,
+    `<b>Take-profit:</b> Price pumps +100% → sell button sent to you → you confirm`,
+    `<b>Trailing stop:</b> Price peaks then drops -15% from peak → sell button sent → you confirm`,
+    `<b>Emergency:</b> Price crashes -50% or more → auto-sells instantly (no confirmation needed)`,
+    `<i>Only emergency sells execute without your approval.</i>`,
+    ``,
+    `<b>📋 COMMANDS:</b>`,
+    `/buy - Buy a token`,
+    `/sell - Sell a token`,
+    `/trades - View trade history`,
+    `/bal - Check wallet balance`,
+    `/positions - Guardian positions`,
+    `/snipe - Snipe opportunities`,
+    `/narrative - AI narrative detection`,
+    `/proposals - View pending launches`,
+    `/status - System status`,
+    `/help - All commands`,
+    ``,
+    `<i>If you stop receiving alerts, message the bot again to re-register.</i>`,
+  ].join("\n");
+}
+
+const QA: Record<string, string> = {
   group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals, snipe alerts, and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/snipe - Snipe opportunities\n/help - All commands`,
 
   what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Robinhood Chain token sniper. It scans Uniswap pools, scores every token with a 6-factor algorithm + AI narrative detection, proposes launches when conditions are right, trades tokens, and monitors your positions 24/7 for rugs and price moves.`,
 
   how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Dexscreener across all chains\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via PONS with locked liquidity\n4. <b>Trade</b> - Buy any token on Robinhood Chain via Uniswap V3. All trades require your confirmation\n5. <b>Snipe</b> - Bot finds high-scoring tokens on Robinhood Chain and alerts you to buy\n6. <b>Guard</b> - Monitors your positions 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
 
-  score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection.\n\n<b>The 6 Factors:</b>\n1. Volume Spike (25%)\n2. Liquidity Depth (20%)\n3. 24-Hour Momentum (20%)\n4. 1-Hour Momentum (15%)\n5. Holder Growth (10%)\n6. Safety Score (10%)\n\n<b>Narrative Boost:</b> Qwen AI on Groq adds up to +15% for hot themes.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable\n- 45-69% = Watchlist\n- Below 45% = Noise`,
+  score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection.\n\n<b>The 6 Factors:</b>\n1. Volume Spike (25%)\n2. Liquidity Depth (20%)\n3. 24-Hour Momentum (20%)\n4. 1-Hour Momentum (15%)\n5. Holder Growth (10%)\n6. Safety Score (10%)\n\n<b>Narrative Boost:</b> AI adds up to +15% for hot themes.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable\n- 45-69% = Watchlist\n- Below 45% = Noise`,
 
   launch: `<b>Token Launching</b>\n\nWhen a token scores 70%+ and conditions are right:\n- AI evaluates market heat, confidence, and narrative alignment\n- Must hit 75%+ confidence to propose\n- You approve via Telegram buttons\n- Deploys via PONS (~0.01 ETH)\n- Liquidity is auto-locked — rug-proof from day one\n- Bot asks if you want to buy + start guardian monitoring`,
 
   guardian: `<b>Guardian System</b>\n\nPost-launch monitoring on Robinhood Chain:\n- Rug detection (contract owner, mint authority, supply concentration)\n- Price alerts (20%+ surges or dumps)\n- Holder milestones (100, 500, 1K, 5K, 10K)\n- Stop-loss (-30%) and take-profit (+100%)\n- Emergency auto-sell on >50% drop\n- All sells require your confirmation\n- Telegram alerts in real-time`,
 
-  narrative: `<b>AI Narrative Detection</b>\n\nCOOKING uses Qwen AI on Groq to identify trending themes across all chains.\n\n- Scans trending tokens from Dexscreener\n- AI analyzes token clusters to identify hot narratives\n- Detects meme trends, sector rotations, and hype cycles\n\nTokens matching hot narratives get a score boost (up to +15%).`,
+  narrative: `<b>AI Narrative Detection</b>\n\nCOOKING uses AI to identify trending themes across all chains.\n\n- Scans trending tokens from Dexscreener\n- AI analyzes token clusters to identify hot narratives\n- Detects meme trends, sector rotations, and hype cycles\n\nTokens matching hot narratives get a score boost (up to +15%).`,
 
-  cost: `<b>Costs</b>\n\n- PONS launch: ~0.01 ETH (gas only)\n- Trading: gas only (Uniswap V3 swap)\n- Guardian monitoring: free\n- Narrative detection: free (Groq free tier)\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
+  cost: `<b>Costs</b>\n\n- PONS launch: ~0.01 ETH (gas only)\n- Trading: gas only (Uniswap V3 swap)\n- Guardian monitoring: free\n- Narrative detection: free\n- No platform fees — you only pay Robinhood Chain gas costs\n- Sub-cent transaction fees`,
 
   wallet: `<b>Wallet</b>\n\nCOOKING auto-generates a wallet on first start.\n\nTo fund it:\n1. Go to the dashboard → Wallet section\n2. Copy the wallet address\n3. Send ETH on Robinhood Chain to that address\n\nThe wallet is saved in data/wallet.json and persists across redeploys.`,
 
@@ -207,13 +259,21 @@ const QA: Record<string, string> = {
 
   snipe: `<b>Snipe Alerts</b>\n\nCOOKING scans for high-scoring tokens on Robinhood Chain every 20 minutes.\n\nWhen a token scores 70%+ with good liquidity ($10K+) and holders (50+), you get an alert with quick-buy buttons.\n\nJust tap the amount you want to buy, confirm, and the trade executes on Uniswap V3.\n\nThresholds:\n- Score: 70%+\n- Liquidity: $10K+\n- Holders: 50+\n- Robinhood Chain only`,
 
+  trading: `<b>How Trading Works</b>\n\n<b>Buying:</b>\n1. Receive a snipe or proposal alert with buy buttons\n2. Tap the ETH amount you want to spend (0.001 / 0.005 / 0.01)\n3. Confirm the trade\n4. Trade executes on Uniswap V3 on Robinhood Chain\n5. Tokens land in your COOKING wallet\n\nOr use: /buy &lt;token_address&gt; &lt;eth_amount&gt;\n\n<b>Selling:</b>\n1. Use /sell &lt;token_address&gt; [percentage]\n2. Or tap the sell button when guardian sends an alert\n3. Confirm the trade\n4. ETH returns to your COOKING wallet\n\n<b>Guardian sells (automatic alerts):</b>\n- Stop-loss (-30%): sell button sent → you confirm\n- Take-profit (+100%): sell button sent → you confirm\n- Trailing stop (-15% from peak): sell button sent → you confirm\n- Emergency (-50%+ drop): auto-sells instantly, no confirmation\n\n<b>All trades require your approval</b> — nothing executes without your tap (except emergency).`,
+
   help: `<b>COOKING Commands</b>\n\n<b>Info:</b>\n/start - Welcome message\n/status - System status\n/config - Current thresholds\n/help - This message\n\n<b>Launches:</b>\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n\n<b>Trading:</b>\n/buy TOKEN ETH - Buy a token\n/sell TOKEN PCT - Sell a token\n/trades - View trade history\n/bal - Check wallet balance\n/bal TOKEN - Check token balance\n/positions - Guardian positions\n\n<b>Discovery:</b>\n/snipe - Snipe opportunities\n/narrative - AI narrative detection\n/heat - Market heat explained\n\n<b>Info:</b>\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/costs - Launch costs\n/wallet - Wallet & funding info\n/chain - Robinhood Chain info`,
 };
 
-async function matchQuestion(text: string): Promise<string | null> {
+async function getUserEmailFromChat(chatId: number): Promise<string | null> {
+  const { getUserByChatId } = await import("../auth/users.js");
+  const user = getUserByChatId(chatId);
+  return user?.email || null;
+}
+
+async function matchQuestion(text: string, chatId?: number): Promise<string | null> {
   const lower = text.toLowerCase().trim();
 
-  if (lower === "/start" || lower === "/help") return QA.greet;
+  if (lower === "/start" || lower === "/help") return await handleGreet();
   if (lower === "/status") return handleStatus();
   if (lower === "/proposals") return handleProposals();
   if (lower === "/scoring") return QA.score;
@@ -228,6 +288,12 @@ async function matchQuestion(text: string): Promise<string | null> {
   if (lower === "/bal") return await handleBalance(null);
   if (lower === "/positions") return await handlePositions();
   if (lower === "/trades") return await handleTrades();
+
+  if (lower === "/watchlist") return chatId ? await handleWatchlist(chatId) : "Available in private chat only.";
+  if (lower.startsWith("/unwatch")) {
+    const address = lower.replace("/unwatch", "").trim();
+    return chatId ? await handleUnwatch(chatId, address) : "Available in private chat only.";
+  }
 
   if (lower.startsWith("/buy ")) {
     const args = lower.replace("/buy ", "").trim().split(/\s+/);
@@ -260,7 +326,7 @@ async function matchQuestion(text: string): Promise<string | null> {
   }
 
   if (lower === "hi" || lower === "hey" || lower === "hello" || lower === "yo" || lower === "sup" || lower === "reetings")
-    return QA.greet;
+    return await handleGreet();
 
   if (lower.includes("score") || lower.includes("scoring") || lower.includes("algorithm") || lower.includes("factor") || lower.includes("weighted") || lower.includes("rating") || lower.includes("decide") || lower.includes("determine") || lower.includes("how does it decide"))
     return QA.score;
@@ -284,7 +350,7 @@ async function matchQuestion(text: string): Promise<string | null> {
     return QA.launch;
 
   if (lower.includes("trade") || lower.includes("swap") || lower.includes("buy") || lower.includes("sell") || lower.includes("token"))
-    return `Use /buy or /sell commands:\n/buy &lt;token&gt; &lt;eth&gt; - Buy a token\n/sell &lt;token&gt; [pct] - Sell a token\n/trades - View history`;
+    return QA.trading;
 
   if (lower.includes("heat") || lower.includes("market") || lower.includes("trend") || lower.includes("bull") || lower.includes("bear") || lower.includes("hot") || lower.includes("cold"))
     return QA.heat;
@@ -583,6 +649,44 @@ function isMentionedInText(text: string, botUsername: string): boolean {
   return lower.includes(`@${botUsername.toLowerCase()}`);
 }
 
+async function handleWatchlist(chatId: number): Promise<string> {
+  const email = await getUserEmailFromChat(chatId);
+  if (!email) return `You need to sign up first. Visit the dashboard to create an account.`;
+
+  const { getWatchlist } = await import("../watchlist/watchlist.js");
+  const items = getWatchlist(email);
+
+  if (items.length === 0) {
+    return `Your watchlist is empty.\n\nSend a contract address to look up a token, then tap "Add to Watchlist".`;
+  }
+
+  const lines = [`<b>Your Watchlist (${items.length} tokens)</b>`, ``];
+  for (const item of items) {
+    const chainLabel = item.chain === "solana" ? "Solana" : "Robinhood";
+    lines.push(`• <b>${item.symbol}</b> (${item.name}) — ${chainLabel}`);
+    lines.push(`  <code>${item.address}</code>`);
+    lines.push(`  <a href="https://dexscreener.com/${item.chain}/${item.address}">Dexscreener</a>`);
+    lines.push(`  <code>/unwatch ${item.address}</code>`);
+    lines.push(``);
+  }
+  return lines.join("\n");
+}
+
+async function handleUnwatch(chatId: number, address: string): Promise<string> {
+  const email = await getUserEmailFromChat(chatId);
+  if (!email) return `You need to sign up first. Visit the dashboard to create an account.`;
+
+  if (!address) return `Usage: /unwatch &lt;token_address&gt;`;
+
+  const { removeFromWatchlist } = await import("../watchlist/watchlist.js");
+  const removed = removeFromWatchlist(email, address);
+
+  if (removed) {
+    return `<b>Removed from watchlist</b>\n<code>${address}</code>`;
+  }
+  return `<code>${address}</code> is not in your watchlist.`;
+}
+
 async function handleMessage(msg: Record<string, unknown>): Promise<void> {
   const chat = msg.chat as Record<string, unknown>;
   const chatId = chat.id as number;
@@ -608,8 +712,185 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
     }
   }
 
+  const pending = pendingActions.get(String(chatId));
+  if (pending && !text.startsWith("/")) {
+    const amount = parseFloat(text.trim());
+    if (isNaN(amount) || amount <= 0) {
+      await sendMessage(chatId, `Invalid amount. Send a number like <code>0.005</code> or <code>50</code>.`);
+      return;
+    }
+
+    pendingActions.delete(String(chatId));
+
+    if (pending.type === "buy") {
+      const isSolana = pending.chain === "solana";
+      const chainLabel = isSolana ? "SOL" : "ETH";
+      const amountStr = isSolana ? `${amount} SOL` : `${amount} ETH`;
+      await sendMessage(chatId, `<b>Buying ${amountStr} of token...</b>\n<code>${pending.tokenAddress}</code>\nChain: ${pending.chain || "robinhood"}`);
+
+      try {
+        let result: any;
+        if (isSolana) {
+          const { buyTokenSolana } = await import("../trading/solana-router.js");
+          result = await buyTokenSolana(pending.tokenAddress, amount);
+        } else {
+          const { buyToken } = await import("../trading/buy.js");
+          result = await buyToken(pending.tokenAddress, String(amount));
+        }
+
+        if (result.success) {
+          const { addTrade } = await import("../launch/launcher.js");
+          addTrade({
+            txHash: result.txHash || "",
+            type: "buy",
+            tokenAddress: pending.tokenAddress,
+            amountIn: String(amount),
+            amountOut: result.amountOut || "0",
+            ethSpent: isSolana ? undefined : String(amount),
+            timestamp: Date.now(),
+            status: "success",
+          });
+          const explorerUrl = isSolana
+            ? `https://solscan.io/tx/${result.txHash}`
+            : `https://robinhoodchain.blockscout.com/tx/${result.txHash}`;
+          await sendMessage(chatId, [
+            `<b>✅ Buy Successful</b>`,
+            ``,
+            `Token: <code>${pending.tokenAddress}</code>`,
+            `Spent: ${amountStr}`,
+            `Received: ${result.amountOut || "?"} tokens`,
+            `Tx: <code>${result.txHash}</code>`,
+            ``,
+            `<a href="${explorerUrl}">View on Explorer</a>`,
+          ].join("\n"), {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "Start Guardian", callback_data: `confirm_monitor:${pending.tokenAddress}` }],
+                [{ text: "Sell Now", callback_data: `confirm_sell:${pending.tokenAddress}:100` }],
+              ],
+            },
+          });
+        } else {
+          await sendMessage(chatId, `❌ Buy failed: ${result.error}`);
+        }
+      } catch (err) {
+        await sendMessage(chatId, `❌ Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    } else if (pending.type === "sell") {
+      const pct = Math.min(100, Math.max(1, Math.round(amount)));
+      const isSolana = pending.chain === "solana";
+      await sendMessage(chatId, `<b>Selling ${pct}% of token...</b>\n<code>${pending.tokenAddress}</code>\nChain: ${pending.chain || "robinhood"}`);
+
+      try {
+        let result: any;
+        if (isSolana) {
+          const { sellTokenSolana } = await import("../trading/solana-router.js");
+          result = await sellTokenSolana(pending.tokenAddress, pct);
+        } else {
+          const { sellToken } = await import("../trading/sell.js");
+          result = await sellToken(pending.tokenAddress, pct);
+        }
+
+        if (result.success) {
+          const { addTrade } = await import("../launch/launcher.js");
+          addTrade({
+            txHash: result.txHash || "",
+            type: "sell",
+            tokenAddress: pending.tokenAddress,
+            amountIn: result.amountIn || "0",
+            amountOut: result.amountOut || "0",
+            ethReceived: isSolana ? undefined : result.amountOut || "0",
+            timestamp: Date.now(),
+            status: "success",
+          });
+          const explorerUrl = isSolana
+            ? `https://solscan.io/tx/${result.txHash}`
+            : `https://robinhoodchain.blockscout.com/tx/${result.txHash}`;
+          await sendMessage(chatId, [
+            `<b>✅ Sell Successful</b>`,
+            ``,
+            `Token: <code>${pending.tokenAddress}</code>`,
+            `Sold: ${pct}%`,
+            `Received: ${result.amountOut || "?"}`,
+            `Tx: <code>${result.txHash}</code>`,
+            ``,
+            `<a href="${explorerUrl}">View on Explorer</a>`,
+          ].join("\n"));
+        } else {
+          await sendMessage(chatId, `❌ Sell failed: ${result.error}`);
+        }
+      } catch (err) {
+        await sendMessage(chatId, `❌ Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return;
+  }
+
+  // Token lookup: detect contract addresses
+  const addressMatch = text.trim().match(/^(0x[a-fA-F0-9]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/);
+  if (addressMatch && !isCommand) {
+    const address = addressMatch[1];
+    await sendMessage(chatId, `<b>Looking up token...</b>\n<code>${address}</code>`);
+
+    try {
+      const { lookupTokenByAddress } = await import("../market/sources/uniswap.js");
+      const token = await lookupTokenByAddress(address);
+
+      if (!token) {
+        await sendMessage(chatId, `❌ Token not found: <code>${address}</code>`);
+        return;
+      }
+
+      const chain = token.chain || "unknown";
+      const isRobinhood = chain === "robinhood";
+      const isSolana = chain === "solana";
+      const chainLabel = isRobinhood ? "Robinhood Chain" : isSolana ? "Solana" : chain;
+
+      const lines = [
+        `<b>🔍 ${token.symbol} — ${token.name}</b>`,
+        ``,
+        `<b>Chain:</b> ${chainLabel}`,
+        `<b>Price:</b> $${(token.price || 0) < 0.01 ? (token.price || 0).toPrecision(4) : (token.price || 0).toFixed(6)}`,
+        `<b>MC:</b> $${(token.market_cap || 0).toLocaleString()}`,
+        `<b>Liq:</b> $${(token.liquidity || 0).toLocaleString()}`,
+        `<b>Vol (5m):</b> $${(token.volume_24h || 0).toLocaleString()}`,
+        `<b>24h:</b> ${(token.change_24h || 0) > 0 ? "+" : ""}${(token.change_24h || 0).toFixed(1)}%`,
+        ``,
+        `<code>${token.mint}</code>`,
+      ];
+
+      const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [
+        [
+          { text: `Buy ${token.symbol}`, callback_data: `custom_buy:${token.mint}:${chain}` },
+          { text: `Sell ${token.symbol}`, callback_data: `custom_sell:${token.mint}:${chain}` },
+        ],
+        [
+          { text: "Add to Watchlist", callback_data: `watchlist_add:${token.mint}:${chain}:${token.symbol}:${token.name}` },
+        ],
+        [
+          { text: "Dexscreener", url: `https://dexscreener.com/${chain}/${token.mint}` },
+        ],
+      ];
+
+      if (isRobinhood) {
+        lines.push(``, `<a href="https://robinhoodchain.blockscout.com/address/${token.mint}">View on Blockscout</a>`);
+        keyboard.push([{ text: "Blockscout", url: `https://robinhoodchain.blockscout.com/address/${token.mint}` }]);
+      } else if (isSolana) {
+        lines.push(``, `<a href="https://solscan.io/token/${token.mint}">View on Solscan</a>`);
+        keyboard.push([{ text: "Solscan", url: `https://solscan.io/token/${token.mint}` }]);
+      }
+
+      await sendMessage(chatId, lines.join("\n"), {
+        reply_markup: { inline_keyboard: keyboard },
+      });
+    } catch (err) {
+      await sendMessage(chatId, `❌ Error looking up token: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return;
+  }
+
   try {
-    const reply = await matchQuestion(text);
+    const reply = await matchQuestion(text, chatId);
     if (reply) {
       const isGreeting = text.toLowerCase().trim() === "hi" || text.toLowerCase().trim() === "hey" || text.toLowerCase().trim() === "hello" || text.toLowerCase().trim() === "/start";
       if (isGreeting) {
@@ -679,12 +960,13 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
         const signal = prop?.signal as Record<string, unknown> | undefined;
         const symbol = (prop?.symbol as string) || (signal?.symbol as string) || "?";
         const mint = (signal?.mint as string) || "";
+        const chain = (signal?.chain as string) || "robinhood";
         const name = (prop?.name as string) || (signal?.name as string) || symbol;
         const confidence = ((prop?.confidence as number) || 0) * 100;
         const platform = (prop?.platform as string) || "pons";
 
         const ponsUrl = `https://www.ponsfamily.com/launchpad`;
-        const dexscreenerUrl = `https://dexscreener.com/robinhood/${mint}`;
+        const dexscreenerUrl = `https://dexscreener.com/${chain}/${mint}`;
         const dashboardUrl = `https://cookingbot-production-bcf3.up.railway.app/#deploy`;
         const explorerUrl = `https://robinhoodchain.blockscout.com/address/${mint}`;
 
@@ -909,6 +1191,65 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
         await sendMessage(chatId, `❌ Error: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
+  } else if (data.startsWith("custom_buy:")) {
+    const parts = data.split(":");
+    const tokenAddress = parts[1];
+    const chain = parts[2] || "robinhood";
+    pendingActions.set(String(chatId), { type: "buy", tokenAddress, chain });
+    await answerCallbackQuery(cb.id as string, "Enter amount");
+    if (chatId) {
+      const unit = chain === "solana" ? "SOL" : "ETH";
+      await sendMessage(chatId, [
+        `<b>Enter ${unit} amount to buy:</b>`,
+        ``,
+        `Token: <code>${tokenAddress}</code>`,
+        `Chain: ${chain}`,
+        `Type a number like: <code>0.005</code>`,
+        ``,
+        `<i>Send the amount now. This expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data.startsWith("custom_sell:")) {
+    const parts = data.split(":");
+    const tokenAddress = parts[1];
+    const chain = parts[2] || "robinhood";
+    pendingActions.set(String(chatId), { type: "sell", tokenAddress, chain });
+    await answerCallbackQuery(cb.id as string, "Enter percentage");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter percentage to sell:</b>`,
+        ``,
+        `Token: <code>${tokenAddress}</code>`,
+        `Chain: ${chain}`,
+        `Type a number like: <code>50</code> (for 50%) or <code>100</code> (sell all)`,
+        ``,
+        `<i>Send the percentage now. This expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data.startsWith("watchlist_add:")) {
+    const parts = data.split(":");
+    const address = parts[1];
+    const chain = parts[2] || "robinhood";
+    const symbol = parts[3] || "?";
+    const name = parts[4] || symbol;
+
+    const userEmail = await getUserEmailFromChat(chatId);
+    if (!userEmail) {
+      await sendMessage(chatId, `You need to sign up first to use the watchlist. Visit the dashboard to create an account.`);
+      return;
+    }
+
+    const { addToWatchlist } = await import("../watchlist/watchlist.js");
+    const added = addToWatchlist(userEmail, address, chain, symbol, name);
+
+    await answerCallbackQuery(cb.id as string, added ? "Added to watchlist" : "Already watched");
+    if (chatId) {
+      if (added) {
+        await sendMessage(chatId, `<b>✅ Added to Watchlist</b>\n\n$${symbol} on ${chain}\n<code>${address}</code>`);
+      } else {
+        await sendMessage(chatId, `<b>$${symbol}</b> is already in your watchlist.`);
+      }
+    }
   } else if (data === "skip_action") {
     await answerCallbackQuery(cb.id as string, "Skipped");
     if (chatId && messageId) {
@@ -991,6 +1332,7 @@ export async function sendProposalToTelegram(proposal: {
   estimated_cost_eth: number;
   reasoning: string;
   mint?: string;
+  chain?: string;
 }): Promise<void> {
   if (!getBotToken()) return;
 
@@ -1020,8 +1362,9 @@ export async function sendProposalToTelegram(proposal: {
   );
 
   if (proposal.mint) {
+    const chain = proposal.chain || "robinhood";
     lines.push(
-      `<a href="https://dexscreener.com/robinhood/${proposal.mint}">View on Dexscreener</a>`,
+      `<a href="https://dexscreener.com/${chain}/${proposal.mint}">View on Dexscreener</a>`,
       `<a href="https://robinhoodchain.blockscout.com/address/${proposal.mint}">View on Blockscout</a>`,
       ``,
     );
@@ -1039,8 +1382,9 @@ export async function sendProposalToTelegram(proposal: {
   ];
 
   if (proposal.mint) {
+    const chain = proposal.chain || "robinhood";
     inlineKeyboard.push([
-      { text: "View on Dexscreener", url: `https://dexscreener.com/robinhood/${proposal.mint}` },
+      { text: "View on Dexscreener", url: `https://dexscreener.com/${chain}/${proposal.mint}` },
       { text: "View on Blockscout", url: `https://robinhoodchain.blockscout.com/address/${proposal.mint}` },
     ]);
   }
@@ -1090,7 +1434,7 @@ export async function sendNarrativeToTelegram(narrative: {
   const lines = [
     `<b>🧠 NARRATIVE INTELLIGENCE</b>`,
     ``,
-    `<b>Mid-Cap Opportunities ($20K-$10M)</b>`,
+    `<b>Opportunities ($10K-$10M)</b>`,
     ``,
   ];
 
@@ -1134,12 +1478,15 @@ export async function sendNarrativeToTelegram(narrative: {
 
       // Add trade buttons for top tokens
       const topTokens = tokens.slice(0, 2);
-      if (topTokens.length > 0) {
-        const row = topTokens.map(t => ({
-          text: `Trade $${t.symbol}`,
-          url: `https://cookingbot-production-bcf3.up.railway.app/trade?token=${t.address}&symbol=${t.symbol}`,
-        }));
-        inlineKeyboard.push(row);
+      for (const t of topTokens) {
+        const chain = t.chain || "robinhood";
+        inlineKeyboard.push([
+          { text: `Buy $${t.symbol}`, callback_data: `custom_buy:${t.address}:${chain}` },
+          { text: `Sell $${t.symbol}`, callback_data: `custom_sell:${t.address}:${chain}` },
+        ]);
+        inlineKeyboard.push([
+          { text: `Watch $${t.symbol}`, callback_data: `watchlist_add:${t.address}:${chain}:${t.symbol}:${t.symbol}` },
+        ]);
       }
     } else {
       lines.push(`  <i>No tokens identified</i>`);
@@ -1178,41 +1525,50 @@ export async function sendSnipeAlertToTelegram(token: {
   holders: number;
   price?: number;
   change_24h?: number;
+  chain?: string;
 }): Promise<void> {
   if (!getBotToken()) return;
 
   const allChatIds = getAllChatIds();
   if (allChatIds.length === 0) return;
 
+  const chain = token.chain || "robinhood";
+  const chainLabel = chain === "solana" ? "Solana" : "Robinhood";
   const changeStr = token.change_24h ? `${token.change_24h > 0 ? "+" : ""}${token.change_24h.toFixed(1)}%` : "?";
   const priceStr = token.price ? `$${token.price.toFixed(6)}` : "?";
-  const dashboardUrl = `https://cookingbot-production-bcf3.up.railway.app/trade?token=${token.address}&symbol=${token.symbol}`;
 
-  const text = [
+  const lines = [
     `🎯 <b>SNIPING OPPORTUNITY</b>`,
     ``,
-    `<b>${token.symbol}</b> (<code>${token.address}</code>)`,
+    `<b>${token.symbol}</b> (${chainLabel})`,
+    `<code>${token.address}</code>`,
     `Score: <b>${token.score.toFixed(0)}%</b> | 24h: ${changeStr}`,
     `Price: ${priceStr}`,
-    `Volume: $${(token.volume_24h || 0).toLocaleString()}`,
+    `Volume (5m): $${(token.volume_24h || 0).toLocaleString()}`,
     `Liquidity: $${(token.liquidity || 0).toLocaleString()}`,
     `Holders: ${(token.holders || 0).toLocaleString()}`,
     ``,
-    `<b>To trade:</b>`,
-    `1. Tap "Trade on Dashboard" below`,
-    `2. Deposit ETH to your wallet address shown`,
-    `3. Enter amount and confirm the trade`,
-    ``,
-    `<a href="https://dexscreener.com/robinhood/${token.address}">View on Dexscreener</a>`,
-    `<a href="https://robinhoodchain.blockscout.com/address/${token.address}">View on Blockscout</a>`,
-  ].join("\n");
+    `<a href="https://dexscreener.com/${chain}/${token.address}">Dexscreener</a>`,
+  ];
+
+  if (chain === "robinhood") {
+    lines.push(`<a href="https://robinhoodchain.blockscout.com/address/${token.address}">Blockscout</a>`);
+  } else if (chain === "solana") {
+    lines.push(`<a href="https://solscan.io/token/${token.address}">Solscan</a>`);
+  }
+
+  const text = lines.join("\n");
 
   const inlineKeyboard = [
     [
-      { text: "Trade on Dashboard", url: dashboardUrl },
+      { text: "Buy", callback_data: `custom_buy:${token.address}:${chain}` },
+      { text: "Sell", callback_data: `custom_sell:${token.address}:${chain}` },
     ],
     [
-      { text: "View on Dexscreener", url: `https://dexscreener.com/robinhood/${token.address}` },
+      { text: "Add to Watchlist", callback_data: `watchlist_add:${token.address}:${chain}:${token.symbol}:${token.symbol}` },
+    ],
+    [
+      { text: "Dexscreener", url: `https://dexscreener.com/${chain}/${token.address}` },
     ],
     [
       { text: "Ignore", callback_data: `skip_action` },
@@ -1223,7 +1579,7 @@ export async function sendSnipeAlertToTelegram(token: {
     await sendMessage(chatId, text, { reply_markup: { inline_keyboard: inlineKeyboard } });
   }
 
-  console.log(`[Telegram] Snipe alert sent for $${token.symbol} to ${allChatIds.length} chats`);
+  console.log(`[Telegram] Snipe alert sent for $${token.symbol} (${chain}) to ${allChatIds.length} chats`);
 }
 
 export async function sendGuardianAlertToTelegram(alert: {

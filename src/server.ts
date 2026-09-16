@@ -9,6 +9,7 @@ import {
 } from "./schemas/index.js";
 import { analyzeMarket } from "./market/analyzer.js";
 import { startTelegramBot } from "./social/telegram-bot.js";
+import { authenticateRequest } from "./auth/users.js";
 
 config();
 
@@ -86,7 +87,7 @@ app.post("/api/approve/:id", async (request, reply) => {
         proposal: entry.proposal,
         status: entry.status,
         deploy_url: "https://www.ponsfamily.com/launchpad",
-        dexscreener_url: `https://dexscreener.com/robinhood/${(entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).mint : ""}`,
+        dexscreener_url: `https://dexscreener.com/${((entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).chain : "") || "robinhood"}/${(entry.proposal as Record<string, unknown>)?.signal ? ((entry.proposal as Record<string, unknown>).signal as Record<string, unknown>).mint : ""}`,
       };
     }
   }
@@ -141,7 +142,119 @@ app.get("/api/wallet", async () => {
   return { address, balance: balance.eth, balanceWei: balance.wei.toString() };
 });
 
-app.get("/api/wallet/trades", async () => {
+app.post("/api/auth/signup", async (request, reply) => {
+  const { email, password } = request.body as { email?: string; password?: string };
+  if (!email || !password) {
+    return reply.code(400).send({ error: "Email and password required" });
+  }
+  const { signup } = await import("./auth/users.js");
+  const result = await signup(email, password);
+  if (!result.success) {
+    return reply.code(400).send({ error: result.error });
+  }
+  return { token: result.token };
+});
+
+app.post("/api/auth/login", async (request, reply) => {
+  const { email, password } = request.body as { email?: string; password?: string };
+  if (!email || !password) {
+    return reply.code(400).send({ error: "Email and password required" });
+  }
+  const { login } = await import("./auth/users.js");
+  const result = await login(email, password);
+  if (!result.success) {
+    return reply.code(401).send({ error: result.error });
+  }
+  return { token: result.token };
+});
+
+app.get("/api/auth/me", async (request, reply) => {
+  const email = authenticateRequest(request.headers.authorization);
+  if (!email) {
+    return reply.code(401).send({ error: "Not authenticated" });
+  }
+  const { getUser } = await import("./auth/users.js");
+  const { getBalance: getEthBalance, getWalletAddress: getAddr } = await import("./wallet/wallet.js");
+  const user = getUser(email);
+  if (!user) {
+    return reply.code(404).send({ error: "User not found" });
+  }
+  const walletAddress = getAddr();
+  const walletBalance = await getEthBalance();
+  return {
+    email: user.email,
+    depositedEth: user.depositedEth,
+    tradeCount: user.tradeHistory.length,
+    createdAt: user.createdAt,
+    walletAddress,
+    walletBalance: walletBalance.eth,
+  };
+});
+
+app.post("/api/auth/deposit", async (request, reply) => {
+  const email = authenticateRequest(request.headers.authorization);
+  if (!email) {
+    return reply.code(401).send({ error: "Not authenticated" });
+  }
+  const { amountEth } = request.body as { amountEth?: number };
+  if (!amountEth || amountEth <= 0) {
+    return reply.code(400).send({ error: "Positive amountEth required" });
+  }
+  const { recordDeposit, getUser } = await import("./auth/users.js");
+  const ok = recordDeposit(email, amountEth);
+  if (!ok) {
+    return reply.code(404).send({ error: "User not found" });
+  }
+  const user = getUser(email);
+  const { sendDepositEmail } = await import("./services/email.js");
+  const { getWalletAddress } = await import("./wallet/wallet.js");
+  sendDepositEmail(email, getWalletAddress(), amountEth, user?.depositedEth || 0).catch(() => {});
+  return { success: true, depositedEth: user?.depositedEth || 0 };
+});
+
+app.get("/api/token/lookup/:address", async (request, reply) => {
+  const { address } = request.params as { address: string };
+  if (!address) return reply.code(400).send({ error: "Address required" });
+  const { lookupTokenByAddress } = await import("./market/sources/uniswap.js");
+  const token = await lookupTokenByAddress(address);
+  if (!token) return reply.code(404).send({ error: "Token not found" });
+  return token;
+});
+
+app.get("/api/watchlist", async (request, reply) => {
+  const email = authenticateRequest(request.headers.authorization);
+  if (!email) return reply.code(401).send({ error: "Not authenticated" });
+  const { getWatchlist } = await import("./watchlist/watchlist.js");
+  return getWatchlist(email);
+});
+
+app.post("/api/watchlist", async (request, reply) => {
+  const email = authenticateRequest(request.headers.authorization);
+  if (!email) return reply.code(401).send({ error: "Not authenticated" });
+  const body = request.body as { address?: string; chain?: string; symbol?: string; name?: string };
+  if (!body.address || !body.chain || !body.symbol) {
+    return reply.code(400).send({ error: "address, chain, symbol required" });
+  }
+  const { addToWatchlist } = await import("./watchlist/watchlist.js");
+  const added = addToWatchlist(email, body.address, body.chain, body.symbol, body.name || body.symbol);
+  return { success: added, message: added ? "Added to watchlist" : "Already in watchlist" };
+});
+
+app.delete("/api/watchlist/:address", async (request, reply) => {
+  const email = authenticateRequest(request.headers.authorization);
+  if (!email) return reply.code(401).send({ error: "Not authenticated" });
+  const { address } = request.params as { address: string };
+  const { removeFromWatchlist } = await import("./watchlist/watchlist.js");
+  const removed = removeFromWatchlist(email, address);
+  return { success: removed };
+});
+
+app.get("/api/wallet/trades", async (request) => {
+  const email = authenticateRequest(request.headers.authorization);
+  if (email) {
+    const { getUserTradeHistory } = await import("./auth/users.js");
+    return getUserTradeHistory(email);
+  }
   const { getTradeHistory } = await import("./launch/launcher.js");
   return getTradeHistory();
 });
@@ -153,6 +266,22 @@ app.post("/api/wallet/buy", async (request, reply) => {
   }
   const { buyToken } = await import("./trading/buy.js");
   const result = await buyToken(body.tokenAddress, body.ethAmount);
+
+  const email = authenticateRequest(request.headers.authorization);
+  if (email && result.success) {
+    const { addTradeToUser } = await import("./auth/users.js");
+    addTradeToUser(email, {
+      txHash: result.txHash || "",
+      type: "buy",
+      tokenAddress: body.tokenAddress,
+      amountIn: body.ethAmount,
+      amountOut: result.amountOut || "0",
+      ethSpent: body.ethAmount,
+      timestamp: Date.now(),
+      status: "success",
+    });
+  }
+
   return result;
 });
 
@@ -163,6 +292,22 @@ app.post("/api/wallet/sell", async (request, reply) => {
   }
   const { sellToken } = await import("./trading/sell.js");
   const result = await sellToken(body.tokenAddress, body.percentage || 100);
+
+  const email = authenticateRequest(request.headers.authorization);
+  if (email && result.success) {
+    const { addTradeToUser } = await import("./auth/users.js");
+    addTradeToUser(email, {
+      txHash: result.txHash || "",
+      type: "sell",
+      tokenAddress: body.tokenAddress,
+      amountIn: result.amountIn || "0",
+      amountOut: result.amountOut || "0",
+      ethReceived: result.amountOut || "0",
+      timestamp: Date.now(),
+      status: "success",
+    });
+  }
+
   return result;
 });
 
@@ -189,6 +334,7 @@ app.get("/api/deploy/:id", async (request, reply) => {
   const symbol = (prop?.symbol as string) || (signal?.symbol as string) || "?";
   const name = (prop?.name as string) || (signal?.name as string) || symbol;
   const mint = (signal?.mint as string) || "";
+  const chain = (signal?.chain as string) || "robinhood";
   const confidence = ((prop?.confidence as number) || 0) * 100;
   const platform = (prop?.platform as string) || "pons";
   const reasoning = (prop?.reasoning as string) || "";
@@ -212,7 +358,7 @@ app.get("/api/deploy/:id", async (request, reply) => {
     liquidity,
     holders,
     pons_url: "https://www.ponsfamily.com/launchpad",
-    dexscreener_url: mint ? `https://dexscreener.com/robinhood/${mint}` : "",
+    dexscreener_url: mint ? `https://dexscreener.com/${chain}/${mint}` : "",
     explorer_url: mint ? `https://robinhoodchain.blockscout.com/address/${mint}` : "",
   };
 });

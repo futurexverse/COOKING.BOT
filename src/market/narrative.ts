@@ -1,4 +1,5 @@
-import { fetchUniswapTopPools } from "./sources/uniswap.js";
+import { fetchUniswapTopPools, fetchDexscreenerRobinhood } from "./sources/uniswap.js";
+import { fetchGmgnTrending } from "./sources/gmgn.js";
 import { analyzeNarrative, type NarrativeAnalysis, type NarrativeToken } from "./sources/openai.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
@@ -12,11 +13,9 @@ let cachedNarratives: NarrativeAnalysis | null = null;
 let lastNarrativeFetch = 0;
 const NARRATIVE_CACHE_TTL = 1800000;
 
-// Track recent narratives to prevent theme repetition
 const recentNarratives: string[] = [];
 const MAX_RECENT = 15;
 
-// Track all called tokens (never repeat)
 let calledTokens: string[] = [];
 
 function loadCalledTokens(): void {
@@ -47,15 +46,10 @@ function getCalledTokens(): string[] {
   return [...calledTokens];
 }
 
-function clearCalledTokens(): void {
-  calledTokens = [];
-  saveCalledTokens();
-  console.log("[Narrative] Cleared called tokens list — starting fresh");
-}
-
 loadCalledTokens();
 
 export type { NarrativeAnalysis, NarrativeToken };
+export { getCalledTokens };
 
 const NARRATIVE_KEYWORDS: Record<string, string[]> = {
   "AI agents": ["ai", "agent", "neural", "gpt", "llm", "openai", "anthropic", "claude", "autonomous", "machine learning"],
@@ -83,36 +77,45 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     return cachedNarratives;
   }
 
-  console.log("[Narrative] Fetching trending mid-cap tokens from Dexscreener...");
+  console.log("[Narrative] Fetching trending tokens from multiple sources...");
 
-  let tokens: Awaited<ReturnType<typeof fetchUniswapTopPools>> = [];
-  try {
-    tokens = await fetchUniswapTopPools(50);
-  } catch (err) {
-    console.error("[Narrative] Dexscreener fetch failed:", err);
-  }
+  const [dexTokens, dexRobinhood, gmgnRobinhood] = await Promise.allSettled([
+    fetchUniswapTopPools(50),
+    fetchDexscreenerRobinhood(30),
+    fetchGmgnTrending("robinhood", "5m", 30),
+  ]);
 
-  console.log(`[Narrative] Got ${tokens.length} tokens from Dexscreener`);
+  const allTokens = [
+    ...(dexTokens.status === "fulfilled" ? dexTokens.value : []),
+    ...(dexRobinhood.status === "fulfilled" ? dexRobinhood.value : []),
+    ...(gmgnRobinhood.status === "fulfilled" ? gmgnRobinhood.value : []),
+  ];
 
-  if (tokens.length === 0) {
+  console.log(`[Narrative] Got ${allTokens.length} tokens total (Dexscreener: ${dexTokens.status === "fulfilled" ? dexTokens.value.length : 0}, Robinhood: ${dexRobinhood.status === "fulfilled" ? dexRobinhood.value.length : 0}, GMGN: ${gmgnRobinhood.status === "fulfilled" ? gmgnRobinhood.value.length : 0})`);
+
+  if (allTokens.length === 0) {
     console.log("[Narrative] No token data available, using cached or fallback");
     if (cachedNarratives) return cachedNarratives;
     return fallbackAnalysis();
   }
 
-  // Filter to mid-cap only ($20K - $10M) as backup
-  const midCapTokens = tokens.filter(t => {
-    const mc = t.market_cap || 0;
-    return mc >= 20000 && mc <= 10000000;
+  const seen = new Set<string>();
+  const deduped = allTokens.filter(t => {
+    if (!t.mint) return false;
+    const key = t.mint.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 
-  console.log(`[Narrative] ${midCapTokens.length} mid-cap tokens after filter`);
+  const filtered = deduped.filter(t => {
+    const mc = t.market_cap || 0;
+    return mc >= 10000 && mc <= 500000;
+  });
 
-  if (midCapTokens.length === 0) {
-    console.log("[Narrative] No mid-cap tokens, using all tokens");
-  }
+  console.log(`[Narrative] ${filtered.length} tokens after dedup + $10K-$500K filter`);
 
-  const tokensForAnalysis = midCapTokens.length > 0 ? midCapTokens : tokens;
+  const tokensForAnalysis = filtered.length > 0 ? filtered : deduped;
 
   const tokenSummary = tokensForAnalysis.slice(0, 30).map((t) => ({
     symbol: t.symbol,
@@ -125,21 +128,16 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
     change_24h: t.change_24h || 0,
   }));
 
-  // Sort by volume for better analysis
   tokenSummary.sort((a, b) => b.volume_24h - a.volume_24h);
 
-  // Pass called tokens to Groq so it avoids them
   const calledTokensList = getCalledTokens();
 
-  // Pass recent narratives to Groq so it avoids repetition
-  const analysis = await analyzeNarrative(tokenSummary, calledTokensList);
+  const analysis = await analyzeNarrative(tokenSummary, calledTokensList, recentNarratives);
 
-  // Save called tokens
   for (const [narrative, tokens] of Object.entries(analysis.tokens_per_narrative)) {
     addCalledTokens(tokens);
   }
 
-  // Track recent narratives
   for (const narrative of analysis.trending_narratives) {
     if (!recentNarratives.includes(narrative)) {
       recentNarratives.push(narrative);
@@ -154,7 +152,6 @@ export async function refreshNarratives(): Promise<NarrativeAnalysis> {
 
   console.log(`[Narrative] Trending: ${analysis.trending_narratives.join(", ")}`);
   console.log(`[Narrative] Scores: ${JSON.stringify(analysis.theme_scores)}`);
-  console.log(`[Narrative] Tokens per narrative:`);
   for (const [narrative, tokens] of Object.entries(analysis.tokens_per_narrative)) {
     console.log(`  ${narrative}: ${tokens.map(t => `${t.symbol} (${t.address.slice(0, 8)}...) MC:$${t.market_cap}`).join(", ")}`);
   }

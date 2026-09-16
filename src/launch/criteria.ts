@@ -230,6 +230,7 @@ export async function evaluateLaunchConditions(
       estimated_cost_eth: proposal.estimated_cost_eth,
       reasoning: proposal.reasoning,
       mint: proposal.signal?.mint,
+      chain: proposal.signal?.chain,
     }).catch(() => {});
   }
 
