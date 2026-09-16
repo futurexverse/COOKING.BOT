@@ -834,17 +834,17 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
     await sendMessage(chatId, `<b>Looking up token...</b>\n<code>${address}</code>`);
 
     try {
-      // Try Dexscreener first
-      const { lookupTokenByAddress } = await import("../market/sources/uniswap.js");
-      let token = await lookupTokenByAddress(address);
+      let token: any = null;
 
-      // Fallback: if Dexscreener fails, try Blockscout for Robinhood tokens
-      if (!token && isEvm) {
-        console.log(`[Telegram] Dexscreener miss for ${address}, trying Blockscout...`);
+      // Try Blockscout first for EVM tokens (fast, chain-specific)
+      if (isEvm) {
         try {
-          const resp = await fetch(`https://robinhoodchain.blockscout.com/api/v2/tokens/${address}`, { signal: AbortSignal.timeout(8000) });
+          console.log(`[TokenLookup] Trying Blockscout for ${address}`);
+          const resp = await fetch(`https://robinhoodchain.blockscout.com/api/v2/tokens/${address}`, { signal: AbortSignal.timeout(5000) });
           if (resp.ok) {
-            const data = await resp.json() as { name: string; symbol: string; decimals: string; holders_count: number; total_supply: string };
+            const data = await resp.json() as { name: string; symbol: string; decimals: string; holders_count: number; total_supply: string; market_cap?: string; exchange_rate?: string };
+            const price = parseFloat(data.exchange_rate || "0") || 0;
+            const mc = parseFloat(data.market_cap || "0") || 0;
             token = {
               symbol: data.symbol?.toUpperCase() || "?",
               name: data.name || "Unknown",
@@ -854,21 +854,36 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
               volume_24h: 0,
               liquidity: 0,
               holders: data.holders_count || 0,
-              market_cap: 0,
-              price: 0,
+              market_cap: mc,
+              price,
               source: "blockscout" as const,
             };
+            console.log(`[TokenLookup] Blockscout found: ${token.symbol} (${token.name})`);
           }
         } catch (e) {
-          console.log(`[Telegram] Blockscout fallback failed: ${e}`);
+          console.log(`[TokenLookup] Blockscout error: ${e}`);
         }
       }
 
-      // Fallback: if Solana, try Solscan
-      if (!token && !isEvm) {
-        console.log(`[Telegram] Dexscreener miss for ${address}, trying Solscan...`);
+      // Try Dexscreener if Blockscout didn't find it
+      if (!token) {
         try {
-          const resp = await fetch(`https://public-api.solscan.io/token/meta?token=${address}`, { signal: AbortSignal.timeout(8000) });
+          console.log(`[TokenLookup] Trying Dexscreener for ${address}`);
+          const { lookupTokenByAddress } = await import("../market/sources/uniswap.js");
+          token = await lookupTokenByAddress(address);
+          if (token) {
+            console.log(`[TokenLookup] Dexscreener found: ${token.symbol} on ${token.chain}`);
+          }
+        } catch (e) {
+          console.log(`[TokenLookup] Dexscreener error: ${e}`);
+        }
+      }
+
+      // Try Solscan for Solana tokens
+      if (!token && !isEvm) {
+        try {
+          console.log(`[TokenLookup] Trying Solscan for ${address}`);
+          const resp = await fetch(`https://public-api.solscan.io/token/meta?token=${address}`, { signal: AbortSignal.timeout(5000) });
           if (resp.ok) {
             const data = await resp.json() as { data: { name: string; symbol: string; decimals: number } };
             if (data.data) {
@@ -885,10 +900,22 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
                 price: 0,
                 source: "dexscreener" as const,
               };
+              console.log(`[TokenLookup] Solscan found: ${token.symbol}`);
             }
           }
         } catch (e) {
-          console.log(`[Telegram] Solscan fallback failed: ${e}`);
+          console.log(`[TokenLookup] Solscan error: ${e}`);
+        }
+      }
+
+      // Last resort: try Dexscreener for Solana
+      if (!token && !isEvm) {
+        try {
+          console.log(`[TokenLookup] Trying Dexscreener for Solana ${address}`);
+          const { lookupTokenByAddress } = await import("../market/sources/uniswap.js");
+          token = await lookupTokenByAddress(address);
+        } catch (e) {
+          console.log(`[TokenLookup] Dexscreener Solana error: ${e}`);
         }
       }
 
