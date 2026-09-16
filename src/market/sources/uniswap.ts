@@ -193,18 +193,25 @@ export async function fetchDexscreenerRobinhood(limit = 30): Promise<TokenCandid
 
 export async function lookupTokenByAddress(address: string): Promise<TokenCandidate | null> {
   try {
+    console.log(`[Dexscreener] Looking up token: ${address}`);
     const resp = await fetch(
       `https://api.dexscreener.com/latest/dex/search?q=${address}`,
       { signal: AbortSignal.timeout(10000) }
     );
 
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      console.log(`[Dexscreener] Lookup failed: ${resp.status}`);
+      return null;
+    }
     const data = await resp.json() as { pairs: DexscreenerPair[] };
+    console.log(`[Dexscreener] Lookup got ${data.pairs?.length || 0} pairs for ${address}`);
     if (!data.pairs || data.pairs.length === 0) return null;
 
     const pair = data.pairs.find((p) =>
       p.baseToken.address.toLowerCase() === address.toLowerCase()
     ) || data.pairs[0];
+
+    console.log(`[Dexscreener] Using pair: ${pair.baseToken.symbol} on ${pair.chainId}`);
 
     const vol = pair.volume?.m5 || pair.volume?.h1 || pair.volume?.h24 || 0;
     const liq = pair.liquidity?.usd || 0;
@@ -224,7 +231,8 @@ export async function lookupTokenByAddress(address: string): Promise<TokenCandid
       price: parseFloat(pair.priceUsd) || 0,
       source: "dexscreener" as const,
     };
-  } catch {
+  } catch (err) {
+    console.log(`[Dexscreener] Lookup error for ${address}: ${err}`);
     return null;
   }
 }

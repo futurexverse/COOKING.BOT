@@ -830,14 +830,70 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
   const addressMatch = text.trim().match(/^(0x[a-fA-F0-9]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/);
   if (addressMatch && !isCommand) {
     const address = addressMatch[1];
+    const isEvm = address.startsWith("0x");
     await sendMessage(chatId, `<b>Looking up token...</b>\n<code>${address}</code>`);
 
     try {
+      // Try Dexscreener first
       const { lookupTokenByAddress } = await import("../market/sources/uniswap.js");
-      const token = await lookupTokenByAddress(address);
+      let token = await lookupTokenByAddress(address);
+
+      // Fallback: if Dexscreener fails, try Blockscout for Robinhood tokens
+      if (!token && isEvm) {
+        console.log(`[Telegram] Dexscreener miss for ${address}, trying Blockscout...`);
+        try {
+          const resp = await fetch(`https://robinhoodchain.blockscout.com/api/v2/tokens/${address}`, { signal: AbortSignal.timeout(8000) });
+          if (resp.ok) {
+            const data = await resp.json() as { name: string; symbol: string; decimals: string; holders_count: number; total_supply: string };
+            token = {
+              symbol: data.symbol?.toUpperCase() || "?",
+              name: data.name || "Unknown",
+              mint: address,
+              chain: "robinhood",
+              change_24h: 0,
+              volume_24h: 0,
+              liquidity: 0,
+              holders: data.holders_count || 0,
+              market_cap: 0,
+              price: 0,
+              source: "blockscout" as const,
+            };
+          }
+        } catch (e) {
+          console.log(`[Telegram] Blockscout fallback failed: ${e}`);
+        }
+      }
+
+      // Fallback: if Solana, try Solscan
+      if (!token && !isEvm) {
+        console.log(`[Telegram] Dexscreener miss for ${address}, trying Solscan...`);
+        try {
+          const resp = await fetch(`https://public-api.solscan.io/token/meta?token=${address}`, { signal: AbortSignal.timeout(8000) });
+          if (resp.ok) {
+            const data = await resp.json() as { data: { name: string; symbol: string; decimals: number } };
+            if (data.data) {
+              token = {
+                symbol: data.data.symbol?.toUpperCase() || "?",
+                name: data.data.name || "Unknown",
+                mint: address,
+                chain: "solana",
+                change_24h: 0,
+                volume_24h: 0,
+                liquidity: 0,
+                holders: 0,
+                market_cap: 0,
+                price: 0,
+                source: "dexscreener" as const,
+              };
+            }
+          }
+        } catch (e) {
+          console.log(`[Telegram] Solscan fallback failed: ${e}`);
+        }
+      }
 
       if (!token) {
-        await sendMessage(chatId, `❌ Token not found: <code>${address}</code>`);
+        await sendMessage(chatId, `❌ Token not found: <code>${address}</code>\n\nThe token may not be indexed yet, or the address is invalid.`);
         return;
       }
 
