@@ -45,11 +45,16 @@ interface SnipeCandidate {
 }
 
 async function fetchHolders(address: string, chain: string): Promise<number> {
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+  };
+
   if (chain === "robinhood") {
     try {
       const resp = await fetch(
         `https://robinhoodchain.blockscout.com/api/v2/tokens/${address}`,
-        { signal: AbortSignal.timeout(8000) }
+        { signal: AbortSignal.timeout(8000), headers }
       );
       if (resp.ok) {
         const data = await resp.json() as { holders_count?: number };
@@ -57,6 +62,34 @@ async function fetchHolders(address: string, chain: string): Promise<number> {
       }
     } catch {}
   }
+
+  if (chain === "solana") {
+    try {
+      const resp = await fetch(
+        `https://public-api.solscan.io/token/holders?token=${address}&limit=1`,
+        { signal: AbortSignal.timeout(8000), headers }
+      );
+      if (resp.ok) {
+        const data = await resp.json() as { result?: { total?: number } };
+        return data.result?.total || 0;
+      }
+    } catch {}
+    // Fallback: try Dexscreener pair data for txns count as proxy
+    try {
+      const resp = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${address}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (resp.ok) {
+        const data = await resp.json() as { pairs?: Array<{ txns?: { h24?: { buys: number; sells: number } } }> };
+        if (data.pairs && data.pairs.length > 0) {
+          const txns = data.pairs[0].txns?.h24;
+          if (txns) return txns.buys + txns.sells;
+        }
+      }
+    } catch {}
+  }
+
   return 0;
 }
 

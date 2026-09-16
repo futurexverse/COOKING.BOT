@@ -853,7 +853,13 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
       if (isEvm) {
         try {
           console.log(`[TokenLookup] Trying Blockscout for ${address}`);
-          const resp = await fetch(`https://robinhoodchain.blockscout.com/api/v2/tokens/${address}`, { signal: AbortSignal.timeout(5000) });
+          const resp = await fetch(`https://robinhoodchain.blockscout.com/api/v2/tokens/${address}`, {
+            signal: AbortSignal.timeout(5000),
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+              "Accept": "application/json",
+            },
+          });
           if (resp.ok) {
             const data = await resp.json() as { name: string; symbol: string; decimals: string; holders_count: number; total_supply: string; market_cap?: string; exchange_rate?: string };
             const price = parseFloat(data.exchange_rate || "0") || 0;
@@ -1409,6 +1415,37 @@ async function pollUpdates(): Promise<void> {
   }
 }
 
+async function registerBotCommands(): Promise<void> {
+  try {
+    const resp = await fetch(`${getApi()}/setMyCommands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        commands: [
+          { command: "start", description: "Welcome message & main menu" },
+          { command: "help", description: "All commands" },
+          { command: "status", description: "System status" },
+          { command: "buy", description: "Buy a token" },
+          { command: "sell", description: "Sell a token" },
+          { command: "bal", description: "Check wallet balance" },
+          { command: "trades", description: "View trade history" },
+          { command: "positions", description: "Guardian positions" },
+          { command: "snipe", description: "Current snipe opportunities" },
+          { command: "narrative", description: "AI narrative detection" },
+          { command: "watchlist", description: "View your watchlist" },
+          { command: "wallet", description: "Wallet & funding info" },
+          { command: "config", description: "Current thresholds" },
+          { command: "costs", description: "Launch costs" },
+        ],
+      }),
+    });
+    const data = await resp.json() as { ok: boolean };
+    console.log(`[Telegram] Bot menu commands registered: ${data.ok}`);
+  } catch (err) {
+    console.log(`[Telegram] Failed to register commands: ${err}`);
+  }
+}
+
 export function startTelegramBot(): void {
   if (!getBotToken()) {
     console.log("[Telegram] No TELEGRAM_BOT_TOKEN set, bot disabled");
@@ -1418,6 +1455,7 @@ export function startTelegramBot(): void {
   console.log(`[Telegram] Starting COOKING bot (chat IDs: ${getChatIds().join(", ")})`);
   console.log(`[Telegram] Group/Channel IDs: ${loadGroupIds().join(", ") || "none yet"}`);
 
+  registerBotCommands();
   setInterval(pollUpdates, 3000);
   pollUpdates();
 }

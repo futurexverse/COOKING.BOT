@@ -44,6 +44,12 @@ const HEADERS = {
   "Accept-Encoding": "gzip, deflate, br",
   "Referer": "https://gmgn.ai/",
   "Origin": "https://gmgn.ai",
+  "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"',
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "same-origin",
 };
 
 export async function fetchGmgnTrending(
