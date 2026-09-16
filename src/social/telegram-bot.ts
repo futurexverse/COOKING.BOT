@@ -14,6 +14,19 @@ let polling = false;
 
 const pendingActions = new Map<string, { type: "buy" | "sell"; tokenAddress: string; chain?: string }>();
 
+let wlCounter = 0;
+const pendingWatchlist = new Map<number, { address: string; chain: string; symbol: string; name: string }>();
+
+function makeWlCb(address: string, chain: string, symbol: string, name: string): string {
+  const id = wlCounter++;
+  pendingWatchlist.set(id, { address, chain, symbol, name });
+  if (pendingWatchlist.size > 200) {
+    const oldest = pendingWatchlist.keys().next().value!;
+    pendingWatchlist.delete(oldest);
+  }
+  return `wl:${id}`;
+}
+
 function getBotToken(): string {
   return process.env.TELEGRAM_BOT_TOKEN || "";
 }
@@ -948,7 +961,7 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
           { text: `Sell ${token.symbol}`, callback_data: `custom_sell:${token.mint}:${chain}` },
         ],
         [
-          { text: "Add to Watchlist", callback_data: `watchlist_add:${token.mint}:${chain}:${token.symbol}:${token.name}` },
+          { text: "Add to Watchlist", callback_data: makeWlCb(token.mint!, chain, token.symbol, token.name || token.symbol) },
         ],
         [
           { text: "Dexscreener", url: `https://dexscreener.com/${chain}/${token.mint}` },
@@ -1309,12 +1322,14 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
         `<i>Send the percentage now. This expires in 5 minutes.</i>`,
       ].join("\n"));
     }
-  } else if (data.startsWith("watchlist_add:")) {
-    const parts = data.split(":");
-    const address = parts[1];
-    const chain = parts[2] || "robinhood";
-    const symbol = parts[3] || "?";
-    const name = parts[4] || symbol;
+  } else if (data.startsWith("wl:")) {
+    const id = parseInt(data.split(":")[1], 10);
+    const wl = pendingWatchlist.get(id);
+    if (!wl) {
+      await answerCallbackQuery(cb.id as string, "Expired, try again");
+      return;
+    }
+    pendingWatchlist.delete(id);
 
     const userEmail = await getUserEmailFromChat(chatId);
     if (!userEmail) {
@@ -1323,14 +1338,14 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
     }
 
     const { addToWatchlist } = await import("../watchlist/watchlist.js");
-    const added = addToWatchlist(userEmail, address, chain, symbol, name);
+    const added = addToWatchlist(userEmail, wl.address, wl.chain, wl.symbol, wl.name);
 
     await answerCallbackQuery(cb.id as string, added ? "Added to watchlist" : "Already watched");
     if (chatId) {
       if (added) {
-        await sendMessage(chatId, `<b>✅ Added to Watchlist</b>\n\n$${symbol} on ${chain}\n<code>${address}</code>`);
+        await sendMessage(chatId, `<b>✅ Added to Watchlist</b>\n\n$${wl.symbol} on ${wl.chain}\n<code>${wl.address}</code>`);
       } else {
-        await sendMessage(chatId, `<b>$${symbol}</b> is already in your watchlist.`);
+        await sendMessage(chatId, `<b>$${wl.symbol}</b> is already in your watchlist.`);
       }
     }
   } else if (data === "skip_action") {
@@ -1568,7 +1583,7 @@ export async function sendNarrativeToTelegram(narrative: {
           { text: `Sell $${t.symbol}`, callback_data: `custom_sell:${t.address}:${chain}` },
         ]);
         inlineKeyboard.push([
-          { text: `Watch $${t.symbol}`, callback_data: `watchlist_add:${t.address}:${chain}:${t.symbol}:${t.symbol}` },
+          { text: `Watch $${t.symbol}`, callback_data: makeWlCb(t.address, chain, t.symbol, t.symbol) },
         ]);
       }
     } else {
@@ -1648,7 +1663,7 @@ export async function sendSnipeAlertToTelegram(token: {
       { text: "Sell", callback_data: `custom_sell:${token.address}:${chain}` },
     ],
     [
-      { text: "Add to Watchlist", callback_data: `watchlist_add:${token.address}:${chain}:${token.symbol}:${token.symbol}` },
+      { text: "Add to Watchlist", callback_data: makeWlCb(token.address, chain, token.symbol, token.symbol) },
     ],
     [
       { text: "Dexscreener", url: `https://dexscreener.com/${chain}/${token.address}` },
