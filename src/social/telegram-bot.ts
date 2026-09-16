@@ -207,7 +207,7 @@ async function handleGreet(): Promise<string> {
   return [
     `<b>Hey! Welcome to COOKING.</b>`,
     ``,
-    `I'm your autonomous Robinhood Chain token sniper. I scan Dexscreener trending tokens across ALL chains, score them with AI, propose launches via PONS, trade with Uniswap V3, and guard your positions — all on autopilot.`,
+    `I'm your autonomous token sniper for Robinhood Chain + Solana. I scan trending tokens across both chains, score them with AI, propose launches via PONS, trade on Uniswap V3 and Jupiter, and guard your positions — all on autopilot.`,
     ``,
     `<b>Dashboard:</b> https://cookingbot-production-bcf3.up.railway.app`,
     ``,
@@ -216,10 +216,27 @@ async function handleGreet(): Promise<string> {
     `<b>Balance:</b> ${walletBalance} ETH`,
     `<a href="https://robinhoodchain.blockscout.com/address/${walletAddress}">View on Blockscout</a>`,
     ``,
+    `<b>🧠 NARRATIVE INTELLIGENCE:</b>`,
+    `AI scans Robinhood Chain + Solana every 30 min for trending tokens ($10K-$500K MC)`,
+    `Groups tokens by narrative (AI, memes, DeFi, etc.) with scores`,
+    `Alerts you with Buy/Sell/Watch buttons for each token`,
+    ``,
+    `<b>⚡ AUTO SNIPE:</b>`,
+    `Set your own custom parameters (MC, volume, liquidity, holders, etc.)`,
+    `Get instant alerts when tokens match — no waiting for scheduled scans`,
+    `Use /autosnipe to configure and toggle ON/OFF`,
+    ``,
+    `<b>🚀 LP MIGRATION SNIPER:</b>`,
+    `Detects every Pump.fun token that migrates to Raydium`,
+    `Early entry before the crowd — alerts you instantly with Buy buttons`,
+    ``,
+    `<b>🔍 TOKEN LOOKUP:</b>`,
+    `Paste any contract address in this chat — bot auto-detects chain and shows all token info`,
+    ``,
     `<b>📊 HOW TRADING WORKS:</b>`,
-    `<b>Buy:</b> Tap approve on snipe/proposal alerts, or use /buy &lt;token&gt; &lt;eth&gt;`,
+    `<b>Buy:</b> Tap the Buy button on any alert, or use /buy &lt;token&gt; &lt;eth&gt;`,
     `<b>Sell:</b> Use /sell &lt;token&gt; [pct], or tap the sell button on guardian alerts`,
-    `<b>Execution:</b> All trades run on Uniswap V3 on Robinhood Chain`,
+    `<b>Execution:</b> Robinhood Chain trades run on Uniswap V3. Solana trades run on Jupiter`,
     `<b>Approval:</b> Every trade requires your confirmation — nothing happens without your tap`,
     ``,
     `<b>🛡️ GUARDIAN / STOP-LOSS:</b>`,
@@ -231,27 +248,28 @@ async function handleGreet(): Promise<string> {
     `<i>Only emergency sells execute without your approval.</i>`,
     ``,
     `<b>📋 COMMANDS:</b>`,
+    `/autosnipe - Auto Snipe settings & toggle`,
+    `/narrative - AI narrative detection`,
     `/buy - Buy a token`,
     `/sell - Sell a token`,
     `/trades - View trade history`,
     `/bal - Check wallet balance`,
     `/positions - Guardian positions`,
-    `/snipe - Snipe opportunities`,
-    `/narrative - AI narrative detection`,
+    `/watchlist - Your watchlist`,
     `/proposals - View pending launches`,
     `/status - System status`,
     `/help - All commands`,
     ``,
-    `<i>If you stop receiving alerts, message the bot again to re-register.</i>`,
+    `<i>Just paste any contract address here to look up a token.</i>`,
   ].join("\n");
 }
 
 const QA: Record<string, string> = {
-  group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals, auto-snipe alerts, and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/snipe - Auto Snipe settings\n/help - All commands`,
+  group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals, auto-snipe alerts, and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/autosnipe - Auto Snipe settings\n/help - All commands`,
 
-  what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Robinhood Chain token sniper. It scans Uniswap pools, scores every token with a 6-factor algorithm + AI narrative detection, proposes launches when conditions are right, trades tokens, and monitors your positions 24/7 for rugs and price moves.`,
+  what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous token sniper for Robinhood Chain + Solana. It scans Dexscreener, Birdeye, PumpFun, and Raydium for trending tokens, scores them with AI narrative detection, proposes launches via PONS, trades via Uniswap V3 and Jupiter, and monitors positions 24/7 for rugs and price moves.\n\n<b>Features:</b>\n• Narrative Intelligence — AI groups tokens by trending themes with scores\n• Auto Snipe — Custom parameters, instant alerts when tokens match\n• LP Migration Sniper — Catches every Pump.fun → Raydium migration\n• Token Lookup — Paste any CA to see full token info\n• Watchlist — Track tokens you're interested in\n• Guardian — 24/7 position monitoring with stop-loss/take-profit`,
 
-  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Dexscreener across all chains\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via PONS with locked liquidity\n4. <b>Trade</b> - Buy any token on Robinhood Chain via Uniswap V3. All trades require your confirmation\n5. <b>Snipe</b> - Bot finds high-scoring tokens on Robinhood Chain and alerts you to buy\n6. <b>Guard</b> - Monitors your positions 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
+  how: `<b>How does COOKING work?</b>\n\n1. <b>Scan</b> - Fetches trending tokens from Dexscreener, Birdeye, PumpFun, and Raydium across Robinhood Chain + Solana\n2. <b>Score</b> - 6-factor weighted algorithm rates volume, liquidity, momentum, holders, safety + AI narrative boost\n3. <b>Launch</b> - AI proposes a launch when confidence hits 75%+. You approve, it deploys via PONS with locked liquidity\n4. <b>Trade</b> - Buy any token on Robinhood Chain via Uniswap V3 or Solana via Jupiter. All trades require your confirmation\n5. <b>Auto Snipe</b> - Set custom parameters (MC, volume, liquidity, holders). Get instant alerts when tokens match\n6. <b>LP Migration Sniper</b> - Detects every Pump.fun token that migrates to Raydium. Early entry before the crowd\n7. <b>Narrative Intelligence</b> - AI groups trending tokens by narrative with scores and Buy/Sell/Watch buttons\n8. <b>Guard</b> - Monitors your positions 24/7 for rugs, price crashes, stop-loss and take-profit triggers`,
 
   score: `<b>How COOKING Scores Tokens</b>\n\nCOOKING uses a 6-factor weighted algorithm plus AI narrative detection.\n\n<b>The 6 Factors:</b>\n1. Volume Spike (25%)\n2. Liquidity Depth (20%)\n3. 24-Hour Momentum (20%)\n4. 1-Hour Momentum (15%)\n5. Holder Growth (10%)\n6. Safety Score (10%)\n\n<b>Narrative Boost:</b> AI adds up to +15% for hot themes.\n\n<b>Score Ranges:</b>\n- 70%+ = Actionable\n- 45-69% = Watchlist\n- Below 45% = Noise`,
 
@@ -275,7 +293,7 @@ const QA: Record<string, string> = {
 
   trading: `<b>How Trading Works</b>\n\n<b>Buying:</b>\n1. Receive a snipe or proposal alert with buy buttons\n2. Tap the ETH amount you want to spend (0.001 / 0.005 / 0.01)\n3. Confirm the trade\n4. Trade executes on Uniswap V3 on Robinhood Chain\n5. Tokens land in your COOKING wallet\n\nOr use: /buy &lt;token_address&gt; &lt;eth_amount&gt;\n\n<b>Selling:</b>\n1. Use /sell &lt;token_address&gt; [percentage]\n2. Or tap the sell button when guardian sends an alert\n3. Confirm the trade\n4. ETH returns to your COOKING wallet\n\n<b>Guardian sells (automatic alerts):</b>\n- Stop-loss (-30%): sell button sent → you confirm\n- Take-profit (+100%): sell button sent → you confirm\n- Trailing stop (-15% from peak): sell button sent → you confirm\n- Emergency (-50%+ drop): auto-sells instantly, no confirmation\n\n<b>All trades require your approval</b> — nothing executes without your tap (except emergency).`,
 
-  help: `<b>COOKING Commands</b>\n\n<b>Info:</b>\n/start - Welcome message\n/status - System status\n/config - Current thresholds\n/help - This message\n\n<b>Launches:</b>\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n\n<b>Trading:</b>\n/buy TOKEN ETH - Buy a token\n/sell TOKEN PCT - Sell a token\n/trades - View trade history\n/bal - Check wallet balance\n/bal TOKEN - Check token balance\n/positions - Guardian positions\n\n<b>Discovery:</b>\n/snipe - Auto Snipe settings & toggle\n/narrative - AI narrative detection\n/heat - Market heat explained\n\n<b>Info:</b>\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/costs - Launch costs\n/wallet - Wallet & funding info\n/chain - Robinhood Chain info`,
+  help: `<b>COOKING Commands</b>\n\n<b>Info:</b>\n/start - Welcome message\n/status - System status\n/config - Current thresholds\n/help - This message\n\n<b>Launches:</b>\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n\n<b>Trading:</b>\n/buy TOKEN ETH - Buy a token\n/sell TOKEN PCT - Sell a token\n/trades - View trade history\n/bal - Check wallet balance\n/bal TOKEN - Check token balance\n/positions - Guardian positions\n\n<b>Discovery:</b>\n/autosnipe - Auto Snipe settings & toggle\n/narrative - AI narrative detection\n/heat - Market heat explained\n\n<b>Info:</b>\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/costs - Launch costs\n/wallet - Wallet & funding info\n/chain - Robinhood Chain info`,
 };
 
 async function getUserEmailFromChat(chatId: number): Promise<string | null> {
@@ -1725,7 +1743,7 @@ async function registerBotCommands(): Promise<void> {
           { command: "bal", description: "Check wallet balance" },
           { command: "trades", description: "View trade history" },
           { command: "positions", description: "Guardian positions" },
-          { command: "snipe", description: "Auto Snipe settings & toggle" },
+          { command: "autosnipe", description: "Auto Snipe settings & toggle" },
           { command: "narrative", description: "AI narrative detection" },
           { command: "watchlist", description: "View your watchlist" },
           { command: "wallet", description: "Wallet & funding info" },
