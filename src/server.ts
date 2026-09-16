@@ -420,13 +420,21 @@ try {
   setInterval(runScanAndPropose, SCAN_INTERVAL);
   console.log(`[Server] Auto-scan every ${SCAN_INTERVAL / 1000}s`);
 
-  // Snipe scanner: every 20 minutes
-  const SNIPE_INTERVAL = parseInt(process.env.SNIPE_SCAN_INTERVAL_MS || "1200000");
-  const { runSnipeScanAndAlert } = await import("./market/snipe-scanner.js");
+  // Auto-snipe scanner: every 30 seconds (alerts instantly on match)
+  const AUTO_SNIPE_INTERVAL = 30000;
+  const { runAutoSnipeScan, runMigrationScan } = await import("./market/snipe-scanner.js");
   setTimeout(() => {
-    runSnipeScanAndAlert().catch(() => {});
-    setInterval(runSnipeScanAndAlert, SNIPE_INTERVAL);
-    console.log(`[Server] Snipe scanner every ${SNIPE_INTERVAL / 1000}s`);
+    runAutoSnipeScan().catch(() => {});
+    setInterval(runAutoSnipeScan, AUTO_SNIPE_INTERVAL);
+    console.log(`[Server] Auto-snipe scanner every ${AUTO_SNIPE_INTERVAL / 1000}s`);
+  }, 15000); // First scan after 15 seconds
+
+  // Migration sniper: every 2 minutes
+  const MIGRATION_INTERVAL = 120000;
+  setTimeout(() => {
+    runMigrationScan().catch(() => {});
+    setInterval(runMigrationScan, MIGRATION_INTERVAL);
+    console.log(`[Server] Migration sniper every ${MIGRATION_INTERVAL / 1000}s`);
   }, 30000); // First scan after 30 seconds
 
 } catch (err) {

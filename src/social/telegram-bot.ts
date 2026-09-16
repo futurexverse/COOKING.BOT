@@ -13,6 +13,7 @@ let lastUpdateId = 0;
 let polling = false;
 
 const pendingActions = new Map<string, { type: "buy" | "sell"; tokenAddress: string; chain?: string }>();
+const pendingSettings = new Map<string, string>();
 
 let wlCounter = 0;
 const pendingWatchlist = new Map<number, { address: string; chain: string; symbol: string; name: string }>();
@@ -246,7 +247,7 @@ async function handleGreet(): Promise<string> {
 }
 
 const QA: Record<string, string> = {
-  group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals, snipe alerts, and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/snipe - Snipe opportunities\n/help - All commands`,
+  group_welcome: `<b>COOKING Bot added to this group!</b>\n\nI'll post token launch proposals, auto-snipe alerts, and market alerts here.\n\n<b>Commands you can use:</b>\n/status - System status\n/proposals - View pending launches\n/snipe - Auto Snipe settings\n/help - All commands`,
 
   what: `<b>What is COOKING?</b>\n\nCOOKING is an autonomous Robinhood Chain token sniper. It scans Uniswap pools, scores every token with a 6-factor algorithm + AI narrative detection, proposes launches when conditions are right, trades tokens, and monitors your positions 24/7 for rugs and price moves.`,
 
@@ -270,11 +271,11 @@ const QA: Record<string, string> = {
 
   chain: `<b>Robinhood Chain</b>\n\n- Ethereum L2 built on Arbitrum\n- ~100ms block times, sub-cent gas fees\n- Uniswap V2/V3/V4 for trading\n- PONS for token launches with locked LP\n- Blockscout for analytics and safety\n- Chain ID 4663`,
 
-  snipe: `<b>Snipe Alerts</b>\n\nCOOKING scans for high-scoring tokens on Robinhood Chain every 20 minutes.\n\nWhen a token scores 70%+ with good liquidity ($10K+) and holders (50+), you get an alert with quick-buy buttons.\n\nJust tap the amount you want to buy, confirm, and the trade executes on Uniswap V3.\n\nThresholds:\n- Score: 70%+\n- Liquidity: $10K+\n- Holders: 50+\n- Robinhood Chain only`,
+  snipe: `<b>Auto Snipe</b>\n\nSet your custom parameters and get instant alerts when tokens match.\n\nUse /snipe to configure:\n- Market cap range ($10K-$500K default)\n- Min volume (5m)\n- Min liquidity\n- Min holders\n- Min buy pressure\n- Min momentum (5m)\n- Chains (Robinhood + Solana)\n\nTokens matching your settings are alerted instantly — no waiting for scheduled scans.\n\n<b>LP Migration Sniper</b> also runs automatically, catching every Pump.fun → Raydium migration.`,
 
   trading: `<b>How Trading Works</b>\n\n<b>Buying:</b>\n1. Receive a snipe or proposal alert with buy buttons\n2. Tap the ETH amount you want to spend (0.001 / 0.005 / 0.01)\n3. Confirm the trade\n4. Trade executes on Uniswap V3 on Robinhood Chain\n5. Tokens land in your COOKING wallet\n\nOr use: /buy &lt;token_address&gt; &lt;eth_amount&gt;\n\n<b>Selling:</b>\n1. Use /sell &lt;token_address&gt; [percentage]\n2. Or tap the sell button when guardian sends an alert\n3. Confirm the trade\n4. ETH returns to your COOKING wallet\n\n<b>Guardian sells (automatic alerts):</b>\n- Stop-loss (-30%): sell button sent → you confirm\n- Take-profit (+100%): sell button sent → you confirm\n- Trailing stop (-15% from peak): sell button sent → you confirm\n- Emergency (-50%+ drop): auto-sells instantly, no confirmation\n\n<b>All trades require your approval</b> — nothing executes without your tap (except emergency).`,
 
-  help: `<b>COOKING Commands</b>\n\n<b>Info:</b>\n/start - Welcome message\n/status - System status\n/config - Current thresholds\n/help - This message\n\n<b>Launches:</b>\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n\n<b>Trading:</b>\n/buy TOKEN ETH - Buy a token\n/sell TOKEN PCT - Sell a token\n/trades - View trade history\n/bal - Check wallet balance\n/bal TOKEN - Check token balance\n/positions - Guardian positions\n\n<b>Discovery:</b>\n/snipe - Snipe opportunities\n/narrative - AI narrative detection\n/heat - Market heat explained\n\n<b>Info:</b>\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/costs - Launch costs\n/wallet - Wallet & funding info\n/chain - Robinhood Chain info`,
+  help: `<b>COOKING Commands</b>\n\n<b>Info:</b>\n/start - Welcome message\n/status - System status\n/config - Current thresholds\n/help - This message\n\n<b>Launches:</b>\n/proposals - View pending launches\n/approve ID - Approve a launch\n/reject ID - Reject a launch\n\n<b>Trading:</b>\n/buy TOKEN ETH - Buy a token\n/sell TOKEN PCT - Sell a token\n/trades - View trade history\n/bal - Check wallet balance\n/bal TOKEN - Check token balance\n/positions - Guardian positions\n\n<b>Discovery:</b>\n/snipe - Auto Snipe settings & toggle\n/narrative - AI narrative detection\n/heat - Market heat explained\n\n<b>Info:</b>\n/scoring - How scoring works\n/launch - How launching works\n/guardian - What guardian monitors\n/costs - Launch costs\n/wallet - Wallet & funding info\n/chain - Robinhood Chain info`,
 };
 
 async function getUserEmailFromChat(chatId: number): Promise<string | null> {
@@ -297,7 +298,7 @@ async function matchQuestion(text: string, chatId?: number): Promise<string | nu
   if (lower === "/costs" || lower === "/cost") return QA.cost;
   if (lower === "/wallet") return await handleWallet();
   if (lower === "/heat") return QA.heat;
-  if (lower === "/snipe") return QA.snipe;
+  if (lower === "/snipe" || lower === "/autosnipe") return chatId ? await handleAutoSnipe(chatId) : "Available in private chat only.";
   if (lower === "/bal") return await handleBalance(null);
   if (lower === "/positions") return await handlePositions();
   if (lower === "/trades") return await handleTrades();
@@ -384,6 +385,75 @@ async function matchQuestion(text: string, chatId?: number): Promise<string | nu
     return QA.what;
 
   return null;
+}
+
+async function handleAutoSnipe(chatId: number): Promise<string> {
+  const { getAutoSnipeSettings } = await import("../market/autosnipe.js");
+  const settings = getAutoSnipeSettings(chatId);
+
+  const status = settings.enabled ? "ON" : "OFF";
+  const statusEmoji = settings.enabled ? "🟢" : "🔴";
+  const chains = settings.chains.join(", ");
+
+  return [
+    `${statusEmoji} <b>AUTO SNIPE</b>`,
+    ``,
+    `Status: <b>${status}</b>`,
+    ``,
+    `<b>Current Settings:</b>`,
+    `MC: $${settings.minMarketCap.toLocaleString()} - $${settings.maxMarketCap.toLocaleString()}`,
+    `Volume (5m): $${settings.minVolume5m.toLocaleString()}+`,
+    `Liquidity: $${settings.minLiquidity.toLocaleString()}+`,
+    `Holders: ${settings.minHolders}+`,
+    `Buy Pressure: ${settings.minBuyPressure}%+`,
+    `Momentum (5m): ${settings.minPriceChange5m}%+`,
+    `Chains: ${chains}`,
+    `Max Alerts: ${settings.maxAlertsPerCycle}/cycle`,
+    ``,
+    `<i>Tokens matching your parameters are alerted instantly.</i>`,
+  ].join("\n");
+}
+
+function handleAutoSnipeKeyboard(chatId: number): { reply_markup: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } } {
+  const settings = getAutoSnipeSettingsSync(chatId);
+  const toggleText = settings.enabled ? "Turn OFF" : "Turn ON";
+
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: toggleText, callback_data: "as_toggle" },
+          { text: "Edit Settings", callback_data: "as_edit" },
+        ],
+      ],
+    },
+  };
+}
+
+function getAutoSnipeSettingsSync(chatId: number): { enabled: boolean; [key: string]: unknown } {
+  const SETTINGS_FILE = join(ROOT_DIR, "data", "autosnipe.json");
+  try {
+    if (existsSync(SETTINGS_FILE)) {
+      const all = JSON.parse(readFileSync(SETTINGS_FILE, "utf-8"));
+      return all[String(chatId)] || { enabled: false };
+    }
+  } catch {}
+  return { enabled: false };
+}
+
+function handleAutoSnipeEditKeyboard(): { reply_markup: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } } {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "MC Range", callback_data: "as_mc" }, { text: "Volume (5m)", callback_data: "as_vol" }],
+        [{ text: "Liquidity", callback_data: "as_liq" }, { text: "Holders", callback_data: "as_holders" }],
+        [{ text: "Buy Pressure", callback_data: "as_bp" }, { text: "Momentum", callback_data: "as_mom" }],
+        [{ text: "Chains", callback_data: "as_chains" }, { text: "Max Alerts", callback_data: "as_max" }],
+        [{ text: "Reset Defaults", callback_data: "as_reset" }],
+        [{ text: "Done", callback_data: "as_done" }],
+      ],
+    },
+  };
 }
 
 function handleStatus(): string {
@@ -643,7 +713,7 @@ const QUESTION_BUTTONS: Array<Array<{ text: string; callback_data: string }>> = 
   [{ text: "What is the guardian?", callback_data: "q:guardian" }],
   [{ text: "What does it cost?", callback_data: "q:cost" }],
   [{ text: "Wallet & Funding", callback_data: "q:wallet" }],
-  [{ text: "Snipe Alerts", callback_data: "q:snipe" }],
+  [{ text: "Auto Snipe", callback_data: "q:snipe" }],
   [{ text: "Market heat explained", callback_data: "q:heat" }],
   [{ text: "Robinhood Chain", callback_data: "q:chain" }],
   [{ text: "System status", callback_data: "q:status" }],
@@ -723,6 +793,87 @@ async function handleMessage(msg: Record<string, unknown>): Promise<void> {
     if (!isCommand && !isMentioned) {
       return;
     }
+  }
+
+  const pendingSetting = pendingSettings.get(String(chatId));
+  if (pendingSetting && !text.startsWith("/")) {
+    pendingSettings.delete(String(chatId));
+
+    const { getAutoSnipeSettings, setAutoSnipeSettings } = await import("../market/autosnipe.js");
+    const settings = getAutoSnipeSettings(chatId);
+    const parts = text.trim().split(/\s+/);
+
+    if (pendingSetting === "autosnipe_mc") {
+      if (parts.length < 2) {
+        await sendMessage(chatId, `Invalid format. Send: <code>10000 500000</code>`);
+        return;
+      }
+      const minMC = parseInt(parts[0]);
+      const maxMC = parseInt(parts[1]);
+      if (isNaN(minMC) || isNaN(maxMC) || minMC >= maxMC) {
+        await sendMessage(chatId, `Invalid range. Min must be less than max.`);
+        return;
+      }
+      settings.minMarketCap = minMC;
+      settings.maxMarketCap = maxMC;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>MC range updated:</b> $${minMC.toLocaleString()} - $${maxMC.toLocaleString()}`);
+    } else if (pendingSetting === "autosnipe_vol") {
+      const val = parseInt(parts[0]);
+      if (isNaN(val) || val < 0) {
+        await sendMessage(chatId, `Invalid number.`);
+        return;
+      }
+      settings.minVolume5m = val;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>Min volume (5m) updated:</b> $${val.toLocaleString()}`);
+    } else if (pendingSetting === "autosnipe_liq") {
+      const val = parseInt(parts[0]);
+      if (isNaN(val) || val < 0) {
+        await sendMessage(chatId, `Invalid number.`);
+        return;
+      }
+      settings.minLiquidity = val;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>Min liquidity updated:</b> $${val.toLocaleString()}`);
+    } else if (pendingSetting === "autosnipe_holders") {
+      const val = parseInt(parts[0]);
+      if (isNaN(val) || val < 0) {
+        await sendMessage(chatId, `Invalid number.`);
+        return;
+      }
+      settings.minHolders = val;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>Min holders updated:</b> ${val}`);
+    } else if (pendingSetting === "autosnipe_bp") {
+      const val = parseInt(parts[0]);
+      if (isNaN(val) || val < 0 || val > 100) {
+        await sendMessage(chatId, `Invalid percentage (0-100).`);
+        return;
+      }
+      settings.minBuyPressure = val;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>Min buy pressure updated:</b> ${val}%`);
+    } else if (pendingSetting === "autosnipe_mom") {
+      const val = parseInt(parts[0]);
+      if (isNaN(val)) {
+        await sendMessage(chatId, `Invalid number.`);
+        return;
+      }
+      settings.minPriceChange5m = val;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>Min momentum updated:</b> ${val}%`);
+    } else if (pendingSetting === "autosnipe_max") {
+      const val = parseInt(parts[0]);
+      if (isNaN(val) || val < 1 || val > 10) {
+        await sendMessage(chatId, `Invalid number (1-10).`);
+        return;
+      }
+      settings.maxAlertsPerCycle = val;
+      setAutoSnipeSettings(chatId, settings);
+      await sendMessage(chatId, `<b>Max alerts per cycle updated:</b> ${val}`);
+    }
+    return;
   }
 
   const pending = pendingActions.get(String(chatId));
@@ -1354,6 +1505,150 @@ async function handleCallbackQuery(cb: Record<string, unknown>): Promise<void> {
         await sendMessage(chatId, `<b>$${wl.symbol}</b> is already in your watchlist.`);
       }
     }
+  } else if (data === "as_toggle") {
+    const { toggleAutoSnipe } = await import("../market/autosnipe.js");
+    const enabled = toggleAutoSnipe(chatId!);
+    await answerCallbackQuery(cb.id as string, enabled ? "Auto Snipe ON" : "Auto Snipe OFF");
+    if (chatId) {
+      const statusMsg = enabled
+        ? `🟢 <b>Auto Snipe activated!</b>\n\nScanning for tokens matching your parameters every 30 seconds.`
+        : `🔴 <b>Auto Snipe disabled.</b>`;
+      await sendMessage(chatId, statusMsg);
+    }
+  } else if (data === "as_edit") {
+    await answerCallbackQuery(cb.id as string, "Opening settings...");
+    if (chatId) {
+      await sendMessage(chatId, `<b>Edit Auto Snipe Settings:</b>`, handleAutoSnipeEditKeyboard());
+    }
+  } else if (data === "as_mc") {
+    pendingSettings.set(String(chatId), "autosnipe_mc");
+    await answerCallbackQuery(cb.id as string, "Enter MC range");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter min and max market cap:</b>`,
+        ``,
+        `Format: <code>10000 500000</code>`,
+        `Current: $10,000 - $500,000`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_vol") {
+    pendingSettings.set(String(chatId), "autosnipe_vol");
+    await answerCallbackQuery(cb.id as string, "Enter min volume");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter minimum 5-minute volume (USD):</b>`,
+        ``,
+        `Example: <code>1500</code>`,
+        `Current: $1,500`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_liq") {
+    pendingSettings.set(String(chatId), "autosnipe_liq");
+    await answerCallbackQuery(cb.id as string, "Enter min liquidity");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter minimum liquidity (USD):</b>`,
+        ``,
+        `Example: <code>5000</code>`,
+        `Current: $5,000`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_holders") {
+    pendingSettings.set(String(chatId), "autosnipe_holders");
+    await answerCallbackQuery(cb.id as string, "Enter min holders");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter minimum number of holders:</b>`,
+        ``,
+        `Example: <code>20</code>`,
+        `Current: 20`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_bp") {
+    pendingSettings.set(String(chatId), "autosnipe_bp");
+    await answerCallbackQuery(cb.id as string, "Enter min buy pressure");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter minimum buy pressure (%):</b>`,
+        ``,
+        `Example: <code>55</code>`,
+        `Current: 55%`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_mom") {
+    pendingSettings.set(String(chatId), "autosnipe_mom");
+    await answerCallbackQuery(cb.id as string, "Enter min momentum");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter minimum 5m price change (%):</b>`,
+        ``,
+        `Example: <code>0</code> (positive momentum only)`,
+        `Current: 0%`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_chains") {
+    const { getAutoSnipeSettings, setAutoSnipeSettings } = await import("../market/autosnipe.js");
+    const settings = getAutoSnipeSettings(chatId!);
+    const hasRH = settings.chains.includes("robinhood");
+    const hasSOL = settings.chains.includes("solana");
+    await answerCallbackQuery(cb.id as string, "Toggled chain");
+    if (chatId) {
+      const newChains: string[] = [];
+      if (!hasRH || hasSOL) newChains.push("robinhood");
+      if (!hasSOL || hasRH) newChains.push("solana");
+      if (newChains.length === 0) newChains.push("robinhood", "solana");
+      settings.chains = newChains;
+      setAutoSnipeSettings(chatId!, settings);
+      await sendMessage(chatId, `<b>Chains updated:</b> ${newChains.join(", ")}`);
+    }
+  } else if (data === "as_max") {
+    pendingSettings.set(String(chatId), "autosnipe_max");
+    await answerCallbackQuery(cb.id as string, "Enter max alerts");
+    if (chatId) {
+      await sendMessage(chatId, [
+        `<b>Enter max alerts per scan cycle:</b>`,
+        ``,
+        `Example: <code>3</code>`,
+        `Current: 3`,
+        ``,
+        `<i>Send now. Expires in 5 minutes.</i>`,
+      ].join("\n"));
+    }
+  } else if (data === "as_reset") {
+    const { setAutoSnipeSettings } = await import("../market/autosnipe.js");
+    setAutoSnipeSettings(chatId!, {
+      enabled: false,
+      minMarketCap: 10000,
+      maxMarketCap: 500000,
+      minVolume5m: 1500,
+      minLiquidity: 5000,
+      minHolders: 20,
+      minBuyPressure: 55,
+      minPriceChange5m: 0,
+      chains: ["robinhood", "solana"],
+      maxAlertsPerCycle: 3,
+    });
+    await answerCallbackQuery(cb.id as string, "Settings reset");
+    if (chatId) {
+      await sendMessage(chatId, `<b>Settings reset to defaults.</b>\n\nMC: $10K-$500K | Vol: $1.5K+ | Liq: $5K+ | Holders: 20+ | BP: 55%+ | Momentum: 0%+`);
+    }
+  } else if (data === "as_done") {
+    await answerCallbackQuery(cb.id as string, "Settings saved");
+    if (chatId) {
+      await sendMessage(chatId, `<b>✅ Auto Snipe settings saved.</b>\n\nUse /autosnipe to view your settings.`);
+    }
   } else if (data === "skip_action") {
     await answerCallbackQuery(cb.id as string, "Skipped");
     if (chatId && messageId) {
@@ -1430,7 +1725,7 @@ async function registerBotCommands(): Promise<void> {
           { command: "bal", description: "Check wallet balance" },
           { command: "trades", description: "View trade history" },
           { command: "positions", description: "Guardian positions" },
-          { command: "snipe", description: "Current snipe opportunities" },
+          { command: "snipe", description: "Auto Snipe settings & toggle" },
           { command: "narrative", description: "AI narrative detection" },
           { command: "watchlist", description: "View your watchlist" },
           { command: "wallet", description: "Wallet & funding info" },
@@ -1813,4 +2108,125 @@ export async function sendLaunchBuyConfirmation(data: {
   }
 
   console.log(`[Telegram] Launch buy confirmation sent for $${data.symbol} to ${allChatIds.length} chats`);
+}
+
+export async function sendAutoSnipeAlertToTelegram(data: {
+  chatId: string;
+  symbol: string;
+  address: string;
+  chain: string;
+  market_cap: number;
+  volume_5m: number;
+  liquidity: number;
+  holders: number;
+  price: number;
+  change_5m: number;
+  change_24h: number;
+  buy_pressure: number;
+  dexscreener_url: string;
+}): Promise<void> {
+  if (!getBotToken()) return;
+
+  const chainLabel = data.chain === "solana" ? "Solana" : "Robinhood";
+  const mcStr = data.market_cap >= 1000000 ? `$${(data.market_cap / 1000000).toFixed(1)}M` : data.market_cap >= 1000 ? `$${(data.market_cap / 1000).toFixed(0)}K` : `$${data.market_cap.toFixed(0)}`;
+  const volStr = data.volume_5m >= 1000 ? `$${(data.volume_5m / 1000).toFixed(1)}K` : `$${data.volume_5m.toFixed(0)}`;
+  const liqStr = data.liquidity >= 1000 ? `$${(data.liquidity / 1000).toFixed(1)}K` : `$${data.liquidity.toFixed(0)}`;
+  const change5mStr = data.change_5m > 0 ? `+${data.change_5m.toFixed(1)}%` : `${data.change_5m.toFixed(1)}%`;
+  const change24hStr = data.change_24h > 0 ? `+${data.change_24h.toFixed(1)}%` : `${data.change_24h.toFixed(1)}%`;
+
+  const lines = [
+    `⚡ <b>AUTO SNIPE MATCH</b>`,
+    ``,
+    `<b>${data.symbol}</b> (${chainLabel})`,
+    `<code>${data.address}</code>`,
+    ``,
+    `MC: ${mcStr} | Liq: ${liqStr}`,
+    `Vol (5m): ${volStr} | Holders: ${data.holders}`,
+    `24h: ${change24hStr} | 5m: ${change5mStr}`,
+    `Buy Pressure: ${data.buy_pressure}%`,
+    ``,
+    `<a href="${data.dexscreener_url}">Dexscreener</a>`,
+  ];
+
+  if (data.chain === "robinhood") {
+    lines.push(`<a href="https://robinhoodchain.blockscout.com/address/${data.address}">Blockscout</a>`);
+  } else if (data.chain === "solana") {
+    lines.push(`<a href="https://solscan.io/token/${data.address}">Solscan</a>`);
+  }
+
+  const text = lines.join("\n");
+
+  const inlineKeyboard = [
+    [
+      { text: "Buy", callback_data: `custom_buy:${data.address}:${data.chain}` },
+      { text: "Sell", callback_data: `custom_sell:${data.address}:${data.chain}` },
+    ],
+    [
+      { text: "Add to Watchlist", callback_data: makeWlCb(data.address, data.chain, data.symbol, data.symbol) },
+    ],
+    [
+      { text: "Dexscreener", url: data.dexscreener_url },
+    ],
+  ];
+
+  await sendMessage(data.chatId, text, { reply_markup: { inline_keyboard: inlineKeyboard } });
+  console.log(`[AutoSnipe] Alert sent for $${data.symbol} (${data.chain}) to ${data.chatId}`);
+}
+
+export async function sendMigrationAlertToTelegram(data: {
+  symbol: string;
+  address: string;
+  market_cap: number;
+  volume_24h: number;
+  liquidity: number;
+  holders: number;
+  price: number;
+  change_24h: number;
+  dexscreener_url: string;
+  source: string;
+}): Promise<void> {
+  if (!getBotToken()) return;
+
+  const allChatIds = getAllChatIds();
+  if (allChatIds.length === 0) return;
+
+  const mcStr = data.market_cap >= 1000000 ? `$${(data.market_cap / 1000000).toFixed(1)}M` : data.market_cap >= 1000 ? `$${(data.market_cap / 1000).toFixed(0)}K` : `$${data.market_cap.toFixed(0)}`;
+  const volStr = data.volume_24h >= 1000 ? `$${(data.volume_24h / 1000).toFixed(1)}K` : `$${data.volume_24h.toFixed(0)}`;
+  const liqStr = data.liquidity >= 1000 ? `$${(data.liquidity / 1000).toFixed(1)}K` : `$${data.liquidity.toFixed(0)}`;
+
+  const lines = [
+    `🚀 <b>LP MIGRATION DETECTED</b>`,
+    ``,
+    `<b>$${data.symbol}</b> just migrated to Raydium!`,
+    `<code>${data.address}</code>`,
+    ``,
+    `MC: ${mcStr} | Liq: ${liqStr}`,
+    `Vol: ${volStr} | Holders: ${data.holders}`,
+    `Source: ${data.source}`,
+    ``,
+    `<a href="${data.dexscreener_url}">Dexscreener</a>`,
+    `<a href="https://solscan.io/token/${data.address}">Solscan</a>`,
+  ];
+
+  const text = lines.join("\n");
+
+  const inlineKeyboard = [
+    [
+      { text: "Buy", callback_data: `custom_buy:${data.address}:solana` },
+      { text: "Sell", callback_data: `custom_sell:${data.address}:solana` },
+    ],
+    [
+      { text: "Add to Watchlist", callback_data: makeWlCb(data.address, "solana", data.symbol, data.symbol) },
+    ],
+    [
+      { text: "Dexscreener", url: data.dexscreener_url },
+      { text: "Raydium", url: `https://raydium.io/swap?inputCurrency=sol&outputCurrency=${data.address}` },
+    ],
+  ];
+
+  for (const chatId of allChatIds) {
+    await sendMessage(chatId, text, { reply_markup: { inline_keyboard: inlineKeyboard } });
+  }
+
+  console.log(`[MigrationSniper] Alert sent for $${data.symbol} to ${allChatIds.length} chats`);
 }
