@@ -288,6 +288,7 @@ export async function scanAutoSnipe(): Promise<AutoSnipeMatch[]> {
 // Migration sniper state
 interface MigrationState {
   seen: string[];
+  pending: MigrationCandidate[];
 }
 
 function loadMigrationState(): MigrationState {
@@ -296,13 +297,29 @@ function loadMigrationState(): MigrationState {
       return JSON.parse(readFileSync(MIGRATIONS_FILE, "utf-8"));
     }
   } catch {}
-  return { seen: [] };
+  return { seen: [], pending: [] };
 }
 
 function saveMigrationState(state: MigrationState): void {
   const dir = dirname(MIGRATIONS_FILE);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(MIGRATIONS_FILE, JSON.stringify(state, null, 2));
+}
+
+export async function fetchSolanaHolders(address: string): Promise<number | null> {
+  try {
+    const resp = await fetch(
+      `https://public-api.solscan.io/token/holders?token=${address}&limit=1`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!resp.ok) throw new Error(`Solscan ${resp.status}`);
+    const data = (await resp.json()) as { total?: number };
+    if (typeof data.total === "number") return data.total;
+    return null;
+  } catch (err) {
+    console.log(`[MigrationSniper] Solscan holders fetch failed for ${address.slice(0, 6)}: ${err}`);
+    return null;
+  }
 }
 
 interface PumpFunMigrationCoin {
@@ -335,16 +352,15 @@ export interface MigrationCandidate {
   market_cap: number;
   volume_24h: number;
   liquidity: number;
-  holders: number;
+  holders: number | null;
   price: number;
   change_24h: number;
   dexscreener_url: string;
   source: string;
 }
 
-export async function scanMigrations(): Promise<MigrationCandidate[]> {
+export async function scanMigrations(): Promise<void> {
   const state = loadMigrationState();
-  const newMigrations: MigrationCandidate[] = [];
 
   try {
     const coins = await fetchPumpFunMigrations();
@@ -354,14 +370,14 @@ export async function scanMigrations(): Promise<MigrationCandidate[]> {
       if (state.seen.includes(coin.mint)) continue;
 
       const mc = coin.usd_market_cap || 0;
-      newMigrations.push({
+      state.pending.push({
         symbol: coin.symbol?.toUpperCase() || "?",
         name: coin.name || coin.symbol || "Unknown",
         address: coin.mint,
         market_cap: mc,
         volume_24h: mc * 0.3,
         liquidity: mc * 0.15,
-        holders: coin.holder_count || 0,
+        holders: null,
         price: coin.price || 0,
         change_24h: 0,
         dexscreener_url: `https://dexscreener.com/solana/${coin.mint}`,
@@ -374,11 +390,25 @@ export async function scanMigrations(): Promise<MigrationCandidate[]> {
     if (state.seen.length > 500) {
       state.seen = state.seen.slice(-500);
     }
+    if (state.pending.length > 200) {
+      state.pending = state.pending.slice(-200);
+    }
 
     saveMigrationState(state);
+    console.log(`[MigrationSniper] ${state.pending.length} migrations queued`);
   } catch (err) {
     console.error("[MigrationSniper] Scan error:", err);
   }
+}
 
-  return newMigrations;
+export function popNextMigration(): MigrationCandidate | null {
+  const state = loadMigrationState();
+  if (state.pending.length === 0) return null;
+  const migration = state.pending.shift()!;
+  saveMigrationState(state);
+  return migration;
+}
+
+export function getMigrationQueueLength(): number {
+  return loadMigrationState().pending.length;
 }

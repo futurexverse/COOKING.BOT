@@ -71,36 +71,47 @@ export async function runAutoSnipeScan(): Promise<void> {
   }
 }
 
-// Migration sniper: scan and alert immediately — no fixed interval waiting
+// Migration sniper: deliver one queued alert per cycle (spaced out, not a burst)
 export async function runMigrationScan(): Promise<void> {
   try {
-    const { scanMigrations } = await import("./autosnipe.js");
+    const { scanMigrations, popNextMigration, getMigrationQueueLength } = await import("./autosnipe.js");
     const { sendMigrationAlertToTelegram } = await import("../social/telegram-bot.js");
 
-    const migrations = await scanMigrations();
+    // Enqueue any new migrations found
+    await scanMigrations();
 
-    for (const migration of migrations) {
-      if (isAlreadySniped(`solana:${migration.address}`)) continue;
+    const queueLength = getMigrationQueueLength();
+    if (queueLength === 0) return;
 
-      await sendMigrationAlertToTelegram({
-        symbol: migration.symbol,
-        address: migration.address,
-        market_cap: migration.market_cap,
-        volume_24h: migration.volume_24h,
-        liquidity: migration.liquidity,
-        holders: migration.holders,
-        price: migration.price,
-        change_24h: migration.change_24h,
-        dexscreener_url: migration.dexscreener_url,
-        source: migration.source,
-      });
+    // Send exactly ONE migration alert per cycle
+    const migration = popNextMigration();
+    if (!migration) return;
 
-      markAsSniped(`solana:${migration.address}`);
+    const { fetchSolanaHolders } = await import("./autosnipe.js");
+    if (migration.holders === null) {
+      migration.holders = await fetchSolanaHolders(migration.address);
     }
 
-    if (migrations.length > 0) {
-      console.log(`[MigrationSniper] Sent ${migrations.length} alerts`);
+    if (isAlreadySniped(`solana:${migration.address}`)) {
+      console.log(`[MigrationSniper] ${migration.symbol} already sniped, skipping. ${queueLength - 1} remaining`);
+      return;
     }
+
+    await sendMigrationAlertToTelegram({
+      symbol: migration.symbol,
+      address: migration.address,
+      market_cap: migration.market_cap,
+      volume_24h: migration.volume_24h,
+      liquidity: migration.liquidity,
+      holders: migration.holders,
+      price: migration.price,
+      change_24h: migration.change_24h,
+      dexscreener_url: migration.dexscreener_url,
+      source: migration.source,
+    });
+
+    markAsSniped(`solana:${migration.address}`);
+    console.log(`[MigrationSniper] Sent alert for $${migration.symbol}. ${queueLength - 1} still queued`);
   } catch (err) {
     console.error("[MigrationSniper] Scan cycle error:", err);
   }

@@ -2197,7 +2197,7 @@ export async function sendMigrationAlertToTelegram(data: {
   market_cap: number;
   volume_24h: number;
   liquidity: number;
-  holders: number;
+  holders: number | null;
   price: number;
   change_24h: number;
   dexscreener_url: string;
@@ -2211,6 +2211,7 @@ export async function sendMigrationAlertToTelegram(data: {
   const mcStr = data.market_cap >= 1000000 ? `$${(data.market_cap / 1000000).toFixed(1)}M` : data.market_cap >= 1000 ? `$${(data.market_cap / 1000).toFixed(0)}K` : `$${data.market_cap.toFixed(0)}`;
   const volStr = data.volume_24h >= 1000 ? `$${(data.volume_24h / 1000).toFixed(1)}K` : `$${data.volume_24h.toFixed(0)}`;
   const liqStr = data.liquidity >= 1000 ? `$${(data.liquidity / 1000).toFixed(1)}K` : `$${data.liquidity.toFixed(0)}`;
+  const holdersStr = data.holders && data.holders > 0 ? data.holders.toLocaleString() : "—";
 
   const lines = [
     `🚀 <b>LP MIGRATION DETECTED</b>`,
@@ -2219,7 +2220,7 @@ export async function sendMigrationAlertToTelegram(data: {
     `<code>${data.address}</code>`,
     ``,
     `MC: ${mcStr} | Liq: ${liqStr}`,
-    `Vol: ${volStr} | Holders: ${data.holders}`,
+    `Vol: ${volStr} | Holders: ${holdersStr}`,
     `Source: ${data.source}`,
     ``,
     `<a href="${data.dexscreener_url}">Dexscreener</a>`,
