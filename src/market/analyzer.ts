@@ -96,13 +96,13 @@ export async function analyzeMarket(
 
   let narrativeAnalysis: NarrativeAnalysis | null = null;
   try {
+    const { getCalledTokens } = await import("./narrative.js");
+    const calledBefore = getCalledTokens();
+
     narrativeAnalysis = await refreshNarratives();
 
     const now = Date.now();
     if (narrativeAnalysis && now - lastNarrativeSentAt > 600000) {
-      const { getCalledTokens } = await import("./narrative.js");
-      const calledBefore = getCalledTokens();
-
       const allNarrativeTokens: string[] = [];
       for (const tokens of Object.values(narrativeAnalysis.tokens_per_narrative)) {
         for (const t of tokens) {

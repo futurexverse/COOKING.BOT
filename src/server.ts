@@ -429,8 +429,8 @@ try {
     console.log(`[Server] Auto-snipe scanner every ${AUTO_SNIPE_INTERVAL / 1000}s`);
   }, 15000); // First scan after 15 seconds
 
-  // Migration sniper: every 10 minutes (one alert at a time)
-  const MIGRATION_INTERVAL = 600000;
+  // Migration sniper: every 30 minutes (one alert at a time)
+  const MIGRATION_INTERVAL = 1800000;
   setTimeout(() => {
     runMigrationScan().catch(() => {});
     setInterval(runMigrationScan, MIGRATION_INTERVAL);
